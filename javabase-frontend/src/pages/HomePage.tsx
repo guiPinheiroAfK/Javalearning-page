@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProgressBar } from "@/components/progress/ProgressBar";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/lib/categoryMeta";
-import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/types";
+import { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_TRACK, TRACK_LABELS, TRACK_ORDER } from "@/types";
 import { cn } from "@/lib/utils";
 
 export function HomePage() {
@@ -41,35 +41,47 @@ export function HomePage() {
       </section>
 
       <section className="mt-16">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Categorias</h2>
         {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORY_ORDER.map((category) => {
-            const items = topics?.[category];
-            if (!items || items.length === 0) {
-              return null;
-            }
-            const Icon = CATEGORY_ICONS[category];
-            const completedCount = items.filter((t) => completedSlugs.has(t.slug)).length;
+        {TRACK_ORDER.map((track) => {
+          const categoriesInTrack = CATEGORY_ORDER.filter((category) => CATEGORY_TRACK[category] === track);
+          const hasAnyItems = categoriesInTrack.some((category) => (topics?.[category]?.length ?? 0) > 0);
+          if (!hasAnyItems) {
+            return null;
+          }
 
-            return (
-              <Link key={category} to={`/topicos/${items[0].slug}`}>
-                <Card className="h-full transition-colors hover:border-primary/50">
-                  <CardContent className="p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Icon className={cn("size-5 shrink-0", CATEGORY_COLORS[category])} />
-                      <span className="font-medium text-foreground">{CATEGORY_LABELS[category]}</span>
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {items.length} tópicos
-                      </span>
-                    </div>
-                    <ProgressBar completed={completedCount} total={items.length} />
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
+          return (
+            <div key={track} className="mb-10 last:mb-0">
+              <h2 className="mb-4 text-lg font-semibold text-foreground">{TRACK_LABELS[track]}</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {categoriesInTrack.map((category) => {
+                  const items = topics?.[category];
+                  if (!items || items.length === 0) {
+                    return null;
+                  }
+                  const Icon = CATEGORY_ICONS[category];
+                  const completedCount = items.filter((t) => completedSlugs.has(t.slug)).length;
+
+                  return (
+                    <Link key={category} to={`/topicos/${items[0].slug}`}>
+                      <Card className="h-full transition-colors hover:border-primary/50">
+                        <CardContent className="p-4">
+                          <div className="mb-3 flex items-center gap-2">
+                            <Icon className={cn("size-5 shrink-0", CATEGORY_COLORS[category])} />
+                            <span className="font-medium text-foreground">{CATEGORY_LABELS[category]}</span>
+                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                              {items.length} tópicos
+                            </span>
+                          </div>
+                          <ProgressBar completed={completedCount} total={items.length} />
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       <section className="mt-16 rounded-xl border border-primary/20 bg-primary/5 p-6 sm:p-8">

@@ -2,10 +2,13 @@ import {
   AlertTriangle,
   BookOpen,
   Boxes,
+  Cpu,
   Database,
+  Gauge,
   Globe,
   Layers,
   Leaf,
+  Network,
   ShieldAlert,
   Sparkles,
   Wrench,
@@ -24,6 +27,9 @@ export const CATEGORY_ICONS: Record<Category, LucideIcon> = {
   SPRING_BOOT: Leaf,
   HTTP_REST: Globe,
   SQL: Database,
+  CONCORRENCIA: Cpu,
+  MICROSERVICES: Network,
+  PERFORMANCE: Gauge,
 };
 
 export const CATEGORY_COLORS: Record<Category, string> = {
@@ -37,4 +43,7 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   SPRING_BOOT: "text-green-400",
   HTTP_REST: "text-cyan-400",
   SQL: "text-indigo-400",
+  CONCORRENCIA: "text-violet-400",
+  MICROSERVICES: "text-rose-400",
+  PERFORMANCE: "text-lime-400",
 };

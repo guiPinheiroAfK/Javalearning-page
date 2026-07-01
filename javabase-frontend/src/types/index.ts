@@ -8,7 +8,10 @@ export type Category =
   | "ECOSSISTEMA"
   | "SPRING_BOOT"
   | "HTTP_REST"
-  | "SQL";
+  | "SQL"
+  | "CONCORRENCIA"
+  | "MICROSERVICES"
+  | "PERFORMANCE";
 
 export type Difficulty = "INICIANTE" | "INTERMEDIARIO" | "AVANCADO";
 
@@ -135,6 +138,9 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   SPRING_BOOT: "Spring Boot",
   HTTP_REST: "HTTP & REST",
   SQL: "SQL",
+  CONCORRENCIA: "Concorrência",
+  MICROSERVICES: "Microservices",
+  PERFORMANCE: "Performance",
 };
 
 export const CATEGORY_ORDER: Category[] = [
@@ -148,10 +154,42 @@ export const CATEGORY_ORDER: Category[] = [
   "SPRING_BOOT",
   "HTTP_REST",
   "SQL",
+  "CONCORRENCIA",
+  "MICROSERVICES",
+  "PERFORMANCE",
 ];
 
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   INICIANTE: "Iniciante",
   INTERMEDIARIO: "Intermediário",
   AVANCADO: "Avançado",
+};
+
+// Trilhas: agrupamento de categorias em 3 níveis de progressão.
+// Puramente derivado da Category (nada disso existe no backend) — não faz
+// sentido persistir um dado 100% calculável a partir de algo que já temos.
+export type Track = "JAVA_BASICO" | "JAVA_INTERMEDIARIO" | "ENGENHARIA_SOFTWARE";
+
+export const TRACK_LABELS: Record<Track, string> = {
+  JAVA_BASICO: "Java Básico",
+  JAVA_INTERMEDIARIO: "Java Intermediário",
+  ENGENHARIA_SOFTWARE: "Engenharia de Software",
+};
+
+export const TRACK_ORDER: Track[] = ["JAVA_BASICO", "JAVA_INTERMEDIARIO", "ENGENHARIA_SOFTWARE"];
+
+export const CATEGORY_TRACK: Record<Category, Track> = {
+  FUNDAMENTOS: "JAVA_BASICO",
+  OOP: "JAVA_BASICO",
+  ARMADILHAS: "JAVA_BASICO",
+  COLLECTIONS: "JAVA_BASICO",
+  EXCEPTIONS: "JAVA_BASICO",
+  JAVA_MODERNO: "JAVA_INTERMEDIARIO",
+  ECOSSISTEMA: "JAVA_INTERMEDIARIO",
+  SPRING_BOOT: "JAVA_INTERMEDIARIO",
+  HTTP_REST: "JAVA_INTERMEDIARIO",
+  SQL: "JAVA_INTERMEDIARIO",
+  CONCORRENCIA: "ENGENHARIA_SOFTWARE",
+  MICROSERVICES: "ENGENHARIA_SOFTWARE",
+  PERFORMANCE: "ENGENHARIA_SOFTWARE",
 };

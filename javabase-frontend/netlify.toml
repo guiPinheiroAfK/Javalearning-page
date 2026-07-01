@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback: React Router usa roteamento client-side (BrowserRouter), então
+# qualquer rota profunda (ex: /topicos/generics) precisa cair no index.html
+# e deixar o React Router decidir o que renderizar — sem isso, dar F5 numa
+# rota que não seja "/" retorna 404 do Netlify.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
