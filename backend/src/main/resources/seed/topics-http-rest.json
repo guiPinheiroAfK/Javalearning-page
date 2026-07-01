@@ -15,7 +15,7 @@
       "DELETE: remover, idempotente (deletar de novo resulta no mesmo estado)",
       "PATCH: atualização parcial (só os campos enviados mudam), diferente de PUT"
     ],
-    "relatedTopicSlugs": ["codigos-status-http", "crud"],
+    "relatedTopicSlugs": ["codigos-status-http", "crud", "arquitetura-microservices"],
     "quizzes": [
       {
         "question": "Por que POST NÃO é considerado idempotente, ao contrário de PUT?",

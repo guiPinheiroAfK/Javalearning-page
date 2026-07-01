@@ -15,7 +15,7 @@
       "LEFT JOIN: todas as linhas da tabela da esquerda, com NULL onde não há correspondência na direita",
       "O Hibernate traduz cada chamada de Repository (findBySlug, save...) em SQL equivalente a esses comandos"
     ],
-    "relatedTopicSlugs": ["entity-repository-service-controller", "crud"],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "crud", "paginacao-offset-vs-keyset"],
     "quizzes": [
       {
         "question": "O que acontece ao rodar `UPDATE users SET active = false;` sem cláusula WHERE?",

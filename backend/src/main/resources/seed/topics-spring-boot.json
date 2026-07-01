@@ -116,7 +116,7 @@
       "Service (@Service): lógica de negócio, orquestra Repositories, decide cache/validação/transação",
       "Controller (@RestController): recebe HTTP, delega pro Service, formata a resposta"
     ],
-    "relatedTopicSlugs": ["arquitetura-mvc", "injecao-de-dependencia"],
+    "relatedTopicSlugs": ["arquitetura-mvc", "injecao-de-dependencia", "transacoes-transactional", "connection-pooling-hikaricp"],
     "quizzes": [
       {
         "question": "Ao declarar `Optional<Topic> findBySlug(String slug);` numa interface que estende JpaRepository, quem escreve a query SQL?",
@@ -159,7 +159,7 @@
       "Com um único construtor, @Autowired nele é opcional desde o Spring 4.3",
       "Injeção por campo esconde as dependências da classe e dificulta testes unitários puros"
     ],
-    "relatedTopicSlugs": ["bean-e-anotacoes-basicas", "abstracao"],
+    "relatedTopicSlugs": ["bean-e-anotacoes-basicas", "abstracao", "spring-ioc-autoconfiguracao", "transacoes-transactional"],
     "quizzes": [
       {
         "question": "Por que a injeção por construtor é preferível à injeção por campo (@Autowired direto no field)?",
@@ -212,7 +212,7 @@
       "@PathVariable extrai da URL; @RequestParam extrai da query string; @RequestBody desserializa o corpo JSON",
       "@Cacheable cacheia o retorno de um método por parâmetro — chamadas repetidas evitam reexecutar a lógica"
     ],
-    "relatedTopicSlugs": ["injecao-de-dependencia", "entity-repository-service-controller"],
+    "relatedTopicSlugs": ["injecao-de-dependencia", "entity-repository-service-controller", "cache-em-camadas"],
     "quizzes": [
       {
         "question": "Qual a diferença técnica entre @RestController e @Controller sozinho?",
