@@ -1,0 +1,262 @@
+[
+  {
+    "slug": "connection-pooling-hikaricp",
+    "title": "Connection Pooling com HikariCP",
+    "category": "PERFORMANCE",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Toda conexão com o banco de dados é cara de abrir (handshake TCP, autenticação, alocação de recursos no servidor). Um **connection pool** mantém um conjunto de conexões já abertas e prontas pra reutilizar, evitando esse custo a cada query. **HikariCP** é o pool default do Spring Boot desde a versão 2 — considerado o mais rápido e leve das opções em Java.\n\nO erro mais comum em produção não é esquecer de configurar o pool — é configurá-lo com um `maximum-pool-size` gigante, achando que \"mais conexões = mais performance\". Na prática, um pool grande demais gera **mais contenção** no próprio banco (mais threads competindo por CPU/I/O do lado do servidor) e mais context-switching, sem ganho real. A fórmula que o próprio time do HikariCP recomenda:\n\n`pool_size = núcleos_de_CPU * 2 + número_de_discos`\n\nOutras propriedades essenciais: `connection-timeout` (falha rápido em vez de travar a aplicação esperando uma conexão livre), `max-lifetime` (recicla conexões antes que o banco as mate por timeout do lado dele — evita erros de \"conexão morta\" surpresa) e `leak-detection-threshold` (loga um aviso se uma conexão ficar emprestada por tempo demais sem ser devolvida ao pool — sintoma de um `try-with-resources` esquecido em algum lugar).",
+    "codeExample": "# application.yml\nspring:\n  datasource:\n    hikari:\n      maximum-pool-size: 20      # NÃO é \"quanto maior melhor\" — depende de CPU/conexões do DB\n      minimum-idle: 5\n      connection-timeout: 3000   # falha rápido em vez de travar a aplicação\n      max-lifetime: 1800000      # recicla conexões antes do banco matar por timeout\n      leak-detection-threshold: 5000  # detecta conexão não fechada (vazamento)\n\n# pool_size = núcleos_de_CPU * 2 + número_de_discos (fórmula do próprio time do HikariCP)\n# Pool gigante não é mais rápido — é mais contenção e mais context-switch no banco.",
+    "codeExampleBad": "@Service\npublic class RelatorioService {\n\n    public List<Venda> buscarVendas(Connection conexaoManual) throws SQLException {\n        // Pegar uma conexão \"na mão\" e esquecer de fechar — clássico vazamento\n        Statement stmt = conexaoManual.createStatement();\n        ResultSet rs = stmt.executeQuery(\"SELECT * FROM vendas\");\n        // ... processa o resultado ...\n        // faltou conexaoManual.close() — essa conexão nunca volta pro pool\n        return mapearVendas(rs);\n    }\n}\n// Com tráfego real, o pool esgota aos poucos até a aplicação travar esperando\n// uma conexão livre que nunca aparece. leak-detection-threshold detectaria isso\n// nos logs antes de virar um incidente em produção.",
+    "keyPoints": [
+      "Connection pool reutiliza conexões já abertas, evitando o custo de abrir uma nova a cada query",
+      "HikariCP é o pool default do Spring Boot desde a versão 2 — mais rápido e leve das opções em Java",
+      "pool_size = núcleos de CPU * 2 + número de discos — pool gigante gera mais contenção, não mais performance",
+      "connection-timeout: falha rápido em vez de travar a aplicação esperando uma conexão",
+      "leak-detection-threshold: detecta conexões não devolvidas ao pool (vazamento) antes de virar incidente"
+    ],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "cache-em-camadas"],
+    "quizzes": [
+      {
+        "question": "Por que 'quanto maior o pool de conexões, melhor a performance' é um mito?",
+        "options": [
+          "Porque pools grandes gastam mais memória RAM apenas",
+          "Porque um pool gigante gera mais contenção no próprio banco (CPU/I/O) e mais context-switching, sem ganho real",
+          "Porque o Spring Boot limita o pool a 10 conexões no máximo",
+          "Não é um mito — pool maior é sempre melhor"
+        ],
+        "correctIndex": 1,
+        "explanation": "Mais conexões simultâneas competindo pelos recursos do servidor de banco (CPU, I/O) geram mais contenção, não mais throughput. A fórmula recomendada (núcleos * 2 + discos) busca o ponto de equilíbrio, não o máximo possível."
+      },
+      {
+        "question": "Para que serve a propriedade `leak-detection-threshold` do HikariCP?",
+        "options": [
+          "Para criptografar as conexões do pool",
+          "Para detectar e logar quando uma conexão fica emprestada por tempo demais sem ser devolvida ao pool",
+          "Para aumentar automaticamente o tamanho do pool quando necessário",
+          "Para desligar o pool em caso de erro de rede"
+        ],
+        "correctIndex": 1,
+        "explanation": "leak-detection-threshold monitora quanto tempo uma conexão fica 'emprestada'. Se ultrapassar o limite configurado, loga um aviso — um sinal de que algum código está esquecendo de fechar/devolver a conexão ao pool (vazamento)."
+      },
+      {
+        "question": "Por que connection-timeout deveria ser configurado para um valor baixo (ex: 3 segundos) em vez de esperar indefinidamente?",
+        "options": [
+          "Para economizar memória RAM",
+          "É melhor a aplicação falhar rápido com um erro claro do que travar threads esperando uma conexão que pode nunca ficar livre",
+          "Porque bancos de dados não aceitam timeouts longos",
+          "Não faz diferença nenhuma na prática"
+        ],
+        "correctIndex": 1,
+        "explanation": "Se o pool está esgotado, esperar indefinidamente por uma conexão livre trava a thread da requisição, piorando o problema (mais requests acumulando). Falhar rápido com um erro claro permite lidar com o problema (retry, fallback) em vez de travar silenciosamente."
+      }
+    ]
+  },
+  {
+    "slug": "cache-em-camadas",
+    "title": "Cache em Camadas: Local + Distribuído",
+    "category": "PERFORMANCE",
+    "orderIndex": 2,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Cache é onde está o ganho real de performance em sistemas de alto tráfego — evitar recalcular ou rebuscar algo que já foi processado recentemente. `@Cacheable` (já visto na seção sobre Spring Boot) resolve o \"onde guardar\", mas em sistemas maiores a pergunta seguinte é: cache local ou distribuído?\n\n**Cache local** (Caffeine, como o usado neste próprio projeto) vive na memória de UMA instância da aplicação — leitura em microssegundos, mas se você roda múltiplas instâncias (escalonamento horizontal), cada uma tem seu próprio cache, potencialmente desatualizado em relação às outras.\n\n**Cache distribuído** (Redis) é compartilhado entre todas as instâncias — todas veem o mesmo dado cacheado, então uma invalidação (`@CacheEvict`) numa instância vale pra todas. Mais lento que o local (ainda é uma chamada de rede, ~1-2ms), mas consistente entre réplicas.\n\nEm sistemas de alto tráfego, o padrão comum é **cache em 2 camadas**: Caffeine (local, na frente) → Redis (distribuído, atrás) → banco de dados (por último). A maioria das requisições nem chega no Redis, muito menos no banco — o cache local absorve o grosso do tráfego repetido, e o Redis serve de rede de segurança consistente quando o cache local não tem o dado (\"cache miss\") ou quando uma instância nova acabou de subir (cache local vazio).",
+    "codeExample": "@Service\npublic class ProdutoService {\n\n    // unless = \"#result == null\": não cacheia resultado nulo — evita cachear\n    // \"não encontrado\" e mascarar um produto criado depois\n    @Cacheable(value = \"produtos\", key = \"#id\", unless = \"#result == null\")\n    public Produto buscarPorId(Long id) {\n        return produtoRepository.findById(id).orElse(null); // só bate no banco 1x\n    }\n\n    @CacheEvict(value = \"produtos\", key = \"#produto.id\")\n    public Produto atualizar(Produto produto) {\n        return produtoRepository.save(produto); // invalida cache na escrita\n    }\n}\n\n// Fluxo típico de 2 camadas:\n// Requisição -> Cache local (Caffeine) -> hit? retorna em ~microssegundos\n//                     |\n//                    miss\n//                     v\n//            Cache distribuído (Redis) -> hit? retorna em ~1-2ms\n//                     |\n//                    miss\n//                     v\n//               Banco de dados -> ~10-50ms+",
+    "codeExampleBad": "@Service\npublic class ProdutoService {\n\n    // SEM unless: cacheia até resultado null — se o produto ainda não existe\n    // quando a primeira chamada acontece, \"null\" fica cacheado, e o produto\n    // criado alguns segundos depois continua \"não encontrado\" até o cache expirar\n    @Cacheable(value = \"produtos\", key = \"#id\")\n    public Produto buscarPorId(Long id) {\n        return produtoRepository.findById(id).orElse(null);\n    }\n\n    public Produto atualizar(Produto produto) {\n        // faltou @CacheEvict — o cache nunca é invalidado na escrita,\n        // então buscarPorId() continua retornando o valor ANTIGO depois de um update\n        return produtoRepository.save(produto);\n    }\n}",
+    "keyPoints": [
+      "Cache local (Caffeine): rapidíssimo, mas isolado por instância — não sincroniza entre réplicas",
+      "Cache distribuído (Redis): compartilhado entre instâncias, mais lento que local mas consistente",
+      "Cache em 2 camadas (Caffeine na frente de Redis) é padrão em sistemas de alto tráfego",
+      "unless = '#result == null' evita cachear 'não encontrado' e mascarar dados criados depois",
+      "Esquecer @CacheEvict na escrita faz o cache continuar servindo dados desatualizados"
+    ],
+    "relatedTopicSlugs": ["bean-e-anotacoes-basicas", "connection-pooling-hikaricp"],
+    "quizzes": [
+      {
+        "question": "Qual a principal limitação de um cache local (Caffeine) quando a aplicação roda em múltiplas instâncias?",
+        "options": [
+          "Ele é mais lento que o banco de dados",
+          "Cada instância tem seu próprio cache isolado — não há sincronização automática entre elas",
+          "Ele não suporta TTL (tempo de expiração)",
+          "Caffeine não funciona junto com Spring Boot"
+        ],
+        "correctIndex": 1,
+        "explanation": "Cache local vive na memória de UMA instância. Com múltiplas instâncias rodando (escalonamento horizontal), cada uma mantém seu próprio cache independente — uma atualização numa instância não invalida o cache das outras automaticamente."
+      },
+      {
+        "question": "Por que o padrão de cache em 2 camadas (Caffeine + Redis) é comum em sistemas de alto tráfego?",
+        "options": [
+          "Porque é uma exigência de conformidade legal",
+          "Combina a velocidade do cache local com a consistência do cache distribuído entre instâncias",
+          "Porque Caffeine sozinho não funciona em produção",
+          "Porque Redis substitui completamente o banco de dados"
+        ],
+        "correctIndex": 1,
+        "explanation": "O cache local absorve a maior parte do tráfego repetido com latência mínima; quando há um miss local, o Redis (compartilhado entre instâncias) serve como segunda camada consistente, antes de finalmente cair pro banco de dados."
+      },
+      {
+        "question": "O que acontece se um método que atualiza dados esquecer de usar @CacheEvict?",
+        "options": [
+          "A aplicação não compila",
+          "O cache continua servindo o valor antigo (desatualizado) depois da atualização",
+          "O Spring lança uma exceção automaticamente ao detectar o esquecimento",
+          "Nada — o Spring detecta e invalida o cache sozinho"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Cacheable só decide o que fica em cache na LEITURA. Sem @CacheEvict explícito na escrita, o Spring não sabe que precisa invalidar aquela entrada — chamadas seguintes de leitura continuam retornando o valor cacheado antigo, ignorando a atualização."
+      }
+    ]
+  },
+  {
+    "slug": "processamento-assincrono-async",
+    "title": "Processamento Assíncrono com @Async",
+    "category": "PERFORMANCE",
+    "orderIndex": 3,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Nem toda operação dentro de uma requisição HTTP precisa terminar antes de você responder ao cliente. Enviar um e-mail de confirmação, gerar um relatório em background, notificar um sistema externo — essas operações podem rodar **depois** que a resposta já foi devolvida, numa thread separada.\n\n`@Async` faz exatamente isso: o método retorna imediatamente (geralmente um `CompletableFuture` ou `void`), e a execução real acontece numa thread de um pool dedicado, sem bloquear a thread que está atendendo a requisição HTTP.\n\n**Por que configurar um Executor próprio, em vez de usar o padrão do Spring?** O executor default do `@Async` (`SimpleAsyncTaskExecutor`) cria uma thread nova a cada chamada, sem limite — em alto tráfego, isso pode esgotar o sistema operacional. Um `ThreadPoolTaskExecutor` configurado com `corePoolSize`, `maxPoolSize` e `queueCapacity` explícitos dá controle sobre quantas operações assíncronas rodam em paralelo, evitando que uma explosão de chamadas assíncronas derrube a aplicação.",
+    "codeExample": "@Service\npublic class NotificacaoService {\n\n    @Async(\"notificacaoExecutor\")\n    public CompletableFuture<Void> enviarEmail(String destinatario, String conteudo) {\n        emailClient.enviar(destinatario, conteudo); // operação lenta não bloqueia o request\n        return CompletableFuture.completedFuture(null);\n    }\n}\n\n@Configuration\n@EnableAsync\npublic class AsyncConfig {\n\n    @Bean(\"notificacaoExecutor\")\n    public Executor notificacaoExecutor() {\n        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();\n        executor.setCorePoolSize(5);\n        executor.setMaxPoolSize(20);\n        executor.setQueueCapacity(500);\n        executor.setThreadNamePrefix(\"notif-\");\n        executor.initialize();\n        return executor;\n    }\n}",
+    "codeExampleBad": "@Service\npublic class NotificacaoService {\n\n    // @Async sem executor nomeado usa o SimpleAsyncTaskExecutor por padrão:\n    // cria uma THREAD NOVA a cada chamada, sem limite algum\n    @Async\n    public void enviarEmail(String destinatario, String conteudo) {\n        emailClient.enviar(destinatario, conteudo);\n    }\n}\n// Em alto tráfego (milhares de e-mails disparados), isso cria milhares de\n// threads do sistema operacional simultaneamente — sem pool, sem fila,\n// sem limite — até esgotar os recursos do SO e derrubar a aplicação.",
+    "keyPoints": [
+      "@Async executa o método numa thread separada, sem bloquear a thread da requisição HTTP",
+      "Retorno CompletableFuture permite compor/aguardar o resultado depois, se necessário",
+      "Executor default (SimpleAsyncTaskExecutor) cria threads ilimitadas — perigoso em alto tráfego",
+      "ThreadPoolTaskExecutor configurado (corePoolSize/maxPoolSize/queueCapacity) controla quantas execuções assíncronas rodam em paralelo",
+      "Self-invocation também quebra @Async, pelo mesmo motivo que quebra @Transactional e @Cacheable (proxy AOP)"
+    ],
+    "relatedTopicSlugs": ["concorrencia-thread-safety", "connection-pooling-hikaricp"],
+    "quizzes": [
+      {
+        "question": "Qual o principal risco de usar @Async sem configurar um Executor próprio?",
+        "options": [
+          "O método deixa de ser assíncrono",
+          "O executor default cria uma thread nova por chamada, sem limite, podendo esgotar o sistema operacional em alto tráfego",
+          "@Async não funciona sem um executor customizado, é obrigatório",
+          "Nenhum risco — o comportamento padrão já é otimizado para produção"
+        ],
+        "correctIndex": 1,
+        "explanation": "O SimpleAsyncTaskExecutor (padrão do Spring) não reutiliza nem limita threads — cria uma nova a cada chamada. Sob tráfego alto, isso pode gerar milhares de threads do SO simultaneamente, esgotando recursos do sistema."
+      },
+      {
+        "question": "Por que configurar queueCapacity num ThreadPoolTaskExecutor é importante?",
+        "options": [
+          "Define quantas tarefas podem esperar na fila quando todas as threads do pool já estão ocupadas, antes de rejeitar novas",
+          "Define o tamanho máximo de memória RAM disponível para a aplicação",
+          "É só um valor cosmético, sem efeito real no comportamento",
+          "Substitui completamente a necessidade de definir corePoolSize"
+        ],
+        "correctIndex": 0,
+        "explanation": "Quando o pool atinge maxPoolSize e todas as threads estão ocupadas, novas tarefas assíncronas esperam na fila (até queueCapacity). Sem esse limite, uma fila ilimitada poderia acumular tarefas indefinidamente, mascarando um problema de capacidade até estourar a memória."
+      },
+      {
+        "question": "Que tipo de operação é uma boa candidata para @Async dentro de um fluxo de requisição HTTP?",
+        "options": [
+          "Validar os dados de entrada do request",
+          "Enviar um e-mail de confirmação que não precisa bloquear a resposta ao cliente",
+          "Buscar o recurso principal que o cliente pediu",
+          "Autenticar o usuário que está fazendo a requisição"
+        ],
+        "correctIndex": 1,
+        "explanation": "Operações que não afetam o resultado imediato da resposta (como enviar um e-mail de notificação) são boas candidatas a @Async — o cliente recebe a resposta rapidamente, e a operação secundária roda em background."
+      }
+    ]
+  },
+  {
+    "slug": "paginacao-offset-vs-keyset",
+    "title": "Paginação: Offset vs Keyset",
+    "category": "PERFORMANCE",
+    "orderIndex": 4,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Sistemas de alto tráfego nunca retornam uma lista inteira de um recurso — sempre paginado. O Spring Data JPA já suporta isso nativamente via `Pageable`/`Page`, usando `OFFSET`/`LIMIT` por baixo dos panos.\n\nO problema: **paginação por OFFSET fica progressivamente mais lenta conforme a página aumenta**. `OFFSET 100000 LIMIT 20` obriga o banco a escanear e descartar as primeiras 100.000 linhas antes de retornar as 20 que importam — em tabelas com milhões de registros, isso se torna um gargalo real, especialmente combinado com `ORDER BY`.\n\nA alternativa pra tabelas muito grandes é **keyset pagination** (também chamada de cursor-based pagination): em vez de \"pule as primeiras N linhas\", você usa uma condição `WHERE coluna_de_ordenacao > ultimo_valor_da_pagina_anterior`. Isso aproveita o índice da coluna de ordenação diretamente, sem escanear nada que já foi mostrado — o custo é aproximadamente constante, não importa quão fundo você está na paginação. A troca: você perde a capacidade de \"pular direto pra página 500\" — só dá pra navegar sequencialmente (próxima/anterior), o que é aceitável na grande maioria dos produtos reais (poucos usuários pulam pra página 500 de qualquer coisa).",
+    "codeExample": "// Paginação tradicional com OFFSET — ótima para a maioria dos casos (poucas páginas)\n@GetMapping\npublic Page<PedidoDTO> listar(\n        @RequestParam(defaultValue = \"0\") int page,\n        @RequestParam(defaultValue = \"20\") int size) {\n    return pedidoRepository.findAll(PageRequest.of(page, size, Sort.by(\"dataCriacao\").descending()))\n        .map(this::toDTO);\n}\n\n// Keyset pagination — para tabelas grandes, custo aproximadamente constante\n@Query(\"SELECT p FROM Pedido p WHERE p.dataCriacao < :cursor ORDER BY p.dataCriacao DESC\")\nList<Pedido> buscarProximaPagina(@Param(\"cursor\") LocalDateTime cursorDaUltimaPagina, Pageable pageable);\n// O cliente manda o 'dataCriacao' do último item que recebeu; a query usa\n// o índice de dataCriacao diretamente, sem escanear as páginas anteriores.",
+    "codeExampleBad": "-- Numa tabela com 10 milhões de linhas, paginar até o fim fica cada vez mais lento:\nSELECT * FROM pedidos ORDER BY data_criacao DESC OFFSET 9000000 LIMIT 20;\n-- O banco precisa processar (e descartar) 9 milhões de linhas antes de\n-- chegar nas 20 que importam. Cada página mais funda = mais trabalho\n-- descartado = latência crescente, mesmo que o resultado final seja pequeno.",
+    "keyPoints": [
+      "Page/Pageable do Spring Data JPA usa OFFSET/LIMIT por padrão — simples, mas degrada com páginas profundas",
+      "OFFSET obriga o banco a escanear e descartar todas as linhas anteriores à página pedida",
+      "Keyset pagination (cursor-based) usa WHERE coluna > ultimo_valor, aproveitando o índice diretamente",
+      "Keyset tem custo aproximadamente constante independente da profundidade da página, mas perde a capacidade de pular pra uma página arbitrária",
+      "Para tabelas com milhões de linhas e navegação sequencial (feed, timeline), keyset é a escolha certa"
+    ],
+    "relatedTopicSlugs": ["sql-basico", "crud"],
+    "quizzes": [
+      {
+        "question": "Por que `OFFSET 100000 LIMIT 20` fica mais lento conforme o offset aumenta?",
+        "options": [
+          "Porque LIMIT 20 é um valor muito pequeno para o banco processar",
+          "Porque o banco precisa escanear e descartar todas as linhas antes do offset pedido",
+          "Porque OFFSET só funciona corretamente até 1000",
+          "Não fica mais lento — o custo é sempre constante, independente do offset"
+        ],
+        "correctIndex": 1,
+        "explanation": "OFFSET não 'pula' as linhas de forma mágica — o banco ainda processa (lê e descarta) todas as linhas anteriores ao offset solicitado antes de retornar o LIMIT pedido. Quanto maior o offset, mais trabalho descartado."
+      },
+      {
+        "question": "Como keyset pagination evita o problema de degradação do OFFSET?",
+        "options": [
+          "Usa uma condição WHERE (ex: coluna > último valor visto) que aproveita o índice diretamente, sem escanear páginas anteriores",
+          "Aumenta o tamanho do LIMIT automaticamente a cada página",
+          "Desativa a cláusula ORDER BY da query",
+          "Usa um cache Redis para armazenar toda a paginação"
+        ],
+        "correctIndex": 0,
+        "explanation": "Em vez de contar N linhas a partir do início, keyset pagination filtra diretamente pela posição no índice (ex: 'WHERE data_criacao < cursor'), o que o banco resolve com custo aproximadamente constante, não importa quantas páginas já foram percorridas."
+      },
+      {
+        "question": "Qual a principal limitação da keyset pagination comparada à paginação por OFFSET?",
+        "options": [
+          "Não funciona junto com ORDER BY",
+          "Não permite pular diretamente para uma página arbitrária (ex: página 500) — só navegação sequencial",
+          "É incompatível com o Spring Data JPA",
+          "Não pode ser usada com PostgreSQL"
+        ],
+        "correctIndex": 1,
+        "explanation": "Keyset pagination depende do 'cursor' da página anterior para buscar a próxima, então só permite navegação sequencial (próxima/anterior). Pular direto para uma página específica no meio da lista não é possível sem re-percorrer o caminho."
+      }
+    ]
+  },
+  {
+    "slug": "profiling-thread-dump-heap-dump",
+    "title": "Profiling: Thread Dump e Heap Dump",
+    "category": "PERFORMANCE",
+    "orderIndex": 5,
+    "difficulty": "AVANCADO",
+    "content": "Quando um sistema em produção apresenta sintomas como \"p99 de latência alta, mas CPU baixa\" ou \"memória crescendo sem parar\", a resposta não é adivinhar — é usar as ferramentas de diagnóstico que já vêm com o JDK.\n\n**Thread dump** (`jstack <pid>`) tira uma \"foto\" do que cada thread da aplicação está fazendo naquele instante — em qual método, esperando o quê. É a ferramenta certa quando **CPU está baixa mas a latência está alta**: geralmente significa que as threads estão esperando por algo (uma conexão de banco esgotada, um lock, uma chamada de rede lenta), não processando de verdade. Um thread dump mostra exatamente onde elas estão travadas.\n\n**Heap dump** (`jmap -dump:live,format=b,file=heap.bin <pid>`) captura um snapshot de todos os objetos vivos na heap. É a ferramenta certa pra investigar **memory leak** — comparar dois heap dumps tirados em momentos diferentes revela quais tipos de objeto estão crescendo sem parar (geralmente uma coleção estática que só cresce, ou um cache sem TTL).\n\n**Monitoramento contínuo de GC** (`-Xlog:gc*`) gera logs detalhados de cada ciclo de coleta, permitindo ver se os Full GCs estão ficando mais frequentes (sinal de pressão de memória) ao longo do tempo, sem precisar tirar um dump manual toda vez.",
+    "codeExample": "# Thread dump — pra ver onde threads estão travadas (deadlock, lock contention,\n# esperando conexão de banco, chamada de rede lenta)\njstack <pid> > thread-dump.txt\n\n# Heap dump — pra investigar memory leak (o que está crescendo na heap)\njmap -dump:live,format=b,file=heap.bin <pid>\n\n# Monitoramento contínuo de GC em produção\njava -Xlog:gc*:file=gc.log:time,uptime:filecount=5,filesize=50M -jar app.jar\n\n# Regra prática de diagnóstico:\n# CPU baixa + latência alta       -> threads esperando algo -> thread dump\n# Memória crescendo sem parar     -> memory leak -> heap dump (compare 2 snapshots)\n# Full GC cada vez mais frequente -> pressão de memória -> gc.log",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Thread dump (jstack): mostra o que cada thread está fazendo agora — use quando CPU está baixa mas latência está alta",
+      "Heap dump (jmap): snapshot de objetos vivos na heap — use pra investigar memory leak, comparando 2 dumps",
+      "CPU baixa + latência alta quase sempre significa threads esperando algo (banco, lock, rede), não processando",
+      "Logs de GC contínuos (-Xlog:gc*) revelam se Full GCs estão ficando mais frequentes ao longo do tempo",
+      "Diagnóstico correto de performance é sobre coletar evidência (dumps, logs), não adivinhar"
+    ],
+    "relatedTopicSlugs": ["jvm-memory-model", "concorrencia-thread-safety"],
+    "quizzes": [
+      {
+        "question": "Um sistema apresenta CPU baixa mas latência (p99) alta. Qual ferramenta ajuda a diagnosticar isso?",
+        "options": ["jmap (heap dump)", "jstack (thread dump)", "javac", "jar"],
+        "correctIndex": 1,
+        "explanation": "CPU baixa com latência alta geralmente indica threads esperando por algo (conexão de banco, lock, resposta de rede), não processando de verdade. jstack (thread dump) mostra exatamente o que cada thread está fazendo, revelando onde está o gargalo de espera."
+      },
+      {
+        "question": "Como um heap dump ajuda a investigar um memory leak?",
+        "options": [
+          "Ele reinicia a aplicação automaticamente",
+          "Comparar dois heap dumps tirados em momentos diferentes revela quais tipos de objeto estão crescendo sem parar",
+          "Ele apaga objetos não utilizados da memória imediatamente",
+          "Ele só funciona em ambiente de desenvolvimento local"
+        ],
+        "correctIndex": 1,
+        "explanation": "Um heap dump é um snapshot dos objetos vivos na heap num instante. Comparando dois snapshots (ex: com uma hora de diferença), fica visível quais tipos de objeto aumentaram em quantidade — geralmente apontando para uma coleção ou cache que só cresce, nunca libera."
+      },
+      {
+        "question": "Por que monitorar logs de GC continuamente (-Xlog:gc*) é útil, além de tirar dumps manuais?",
+        "options": [
+          "Substitui completamente a necessidade de heap dump",
+          "Revela tendências ao longo do tempo, como Full GCs ficando mais frequentes — um sinal precoce de pressão de memória",
+          "Serve só para fins de auditoria de segurança",
+          "Reduz o tamanho da heap automaticamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Logs contínuos de GC mostram a frequência e duração de cada ciclo ao longo do tempo, permitindo identificar tendências (ex: Full GC cada vez mais frequente) antes que o problema vire um incidente — diferente de um dump pontual, que só mostra um instante."
+      }
+    ]
+  }
+]
