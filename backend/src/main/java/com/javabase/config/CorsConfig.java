@@ -16,7 +16,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${web.cors.allowed-origin}")
+    @Value("${web.cors.allowed-origin:https://javalearningpage.netlify.app}") // <-- Adiciona o :valor-padrao
     private String allowedOrigins;
 
     @Bean

@@ -22,7 +22,7 @@ spring:
 
 web:
   cors:
-    allowed-origin: http://localhost:5173 # Vite dev server
+    allowed-origin: ${WEB_CORS_ALLOWED_ORIGIN:https://javalearningpage.netlify.app} # Vite dev server
 
 server:
   port: 8080
