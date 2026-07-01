@@ -1,0 +1,156 @@
+[
+  {
+    "slug": "arquitetura-microservices",
+    "title": "Arquitetura de Microservices",
+    "category": "MICROSERVICES",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Microservices decompõe um sistema em serviços pequenos, independentes, cada um responsável por um domínio de negócio específico — em vez de um monólito único fazendo tudo (como este próprio backend do JavaBase, que é intencionalmente um monólito: simples de rodar, simples de entender, e é a escolha certa pra um projeto deste tamanho).\n\n**Princípio-chave, e o que mais confunde quem vem de monolito**: cada serviço tem seu **próprio banco de dados**. Isso significa que você não pode dar um `JOIN` SQL entre tabelas de serviços diferentes — o Pedidos Service não pode fazer `JOIN` direto na tabela de Estoque, porque elas nem estão no mesmo banco. A comunicação entre serviços acontece de duas formas:\n\n**Síncrona** (REST/gRPC) — um serviço chama o outro diretamente e espera a resposta. Simples de entender, mas acopla os serviços em disponibilidade: se o serviço chamado está fora do ar, a chamada falha (a menos que você use um Circuit Breaker).\n\n**Assíncrona** (eventos via message broker — Kafka, RabbitMQ) — um serviço publica um evento (\"PedidoCriado\") sem saber quem vai consumir; outros serviços escutam e reagem. Desacopla disponibilidade (o publicador não espera resposta), mas adiciona complexidade de consistência eventual.\n\nDois componentes de infraestrutura aparecem em praticamente toda arquitetura de microservices: **API Gateway** (ponto de entrada único, roteia requests pro serviço certo, pode centralizar autenticação e rate limiting) e **Service Discovery** (Eureka, Consul — registro dinâmico de onde cada serviço está rodando, essencial quando instâncias sobem/descem o tempo todo em ambientes elásticos).",
+    "codeExample": "// Uma requisição típica passando pela arquitetura:\n// Cliente -> API Gateway -> Pedidos Service -> (evento) -> Estoque Service\n//                                             -> (evento) -> Pagamentos Service\n\n// Cada serviço só enxerga o PRÓPRIO banco — não existe JOIN entre eles.\n// Pedidos Service consultando o \"nome do cliente\" que mora no Auth Service\n// precisa fazer uma chamada (síncrona ou via evento), nunca um JOIN direto:\n\n@Service\npublic class PedidoService {\n    private final RestClient authServiceClient; // chamada HTTP pro outro serviço\n\n    public PedidoDetalhado buscarComCliente(Long pedidoId) {\n        Pedido pedido = pedidoRepository.findById(pedidoId).orElseThrow();\n        ClienteDTO cliente = authServiceClient.get()\n            .uri(\"/clientes/{id}\", pedido.getClienteId())\n            .retrieve()\n            .body(ClienteDTO.class); // chamada de rede — pode falhar, pode ser lenta\n        return new PedidoDetalhado(pedido, cliente);\n    }\n}",
+    "codeExampleBad": "-- Isso é o que você faria num MONÓLITO, mas NÃO funciona entre microservices,\n-- porque as tabelas 'pedidos' e 'clientes' vivem em bancos de dados diferentes:\nSELECT p.*, c.nome\nFROM pedidos p\nJOIN clientes c ON c.id = p.cliente_id;\n-- Pedidos Service e Auth Service (dono de 'clientes') não compartilham conexão\n-- de banco. A única forma de juntar esses dados é uma chamada de rede\n-- (REST/gRPC) ou consumir um evento que já carregue os dados replicados.",
+    "keyPoints": [
+      "Microservices: cada serviço tem seu próprio domínio de negócio E seu próprio banco de dados",
+      "Sem JOIN entre serviços — comunicação via chamada síncrona (REST/gRPC) ou eventos assíncronos (Kafka/RabbitMQ)",
+      "Síncrono: mais simples, mas acopla disponibilidade. Assíncrono: desacopla, mas exige lidar com consistência eventual",
+      "API Gateway: ponto de entrada único, roteamento, autenticação centralizada",
+      "Service Discovery (Eureka/Consul): registro dinâmico de onde cada instância de serviço está rodando"
+    ],
+    "relatedTopicSlugs": ["http-metodos-get-post-put-delete", "circuit-breaker-resiliencia"],
+    "quizzes": [
+      {
+        "question": "Qual o princípio-chave que mais diferencia microservices de um monólito, do ponto de vista de dados?",
+        "options": [
+          "Microservices usam sempre banco NoSQL",
+          "Cada serviço tem seu próprio banco de dados — não existe JOIN direto entre tabelas de serviços diferentes",
+          "Microservices não podem usar SQL de forma alguma",
+          "Microservices sempre compartilham um único banco central"
+        ],
+        "correctIndex": 1,
+        "explanation": "No monólito, uma única base de dados serve tudo, permitindo JOINs livres. Em microservices, cada serviço é dono do seu próprio banco — dados de outro domínio só chegam via chamada de rede (síncrona) ou evento (assíncrono), nunca via JOIN SQL direto."
+      },
+      {
+        "question": "Qual a principal desvantagem de comunicação SÍNCRONA (REST/gRPC) entre microservices?",
+        "options": [
+          "É sempre mais lenta que qualquer alternativa, sem exceção",
+          "Acopla a disponibilidade dos serviços — se o serviço chamado cair, a chamada falha",
+          "Não é possível de implementar em Java",
+          "Não existe nenhuma desvantagem real"
+        ],
+        "correctIndex": 1,
+        "explanation": "Numa chamada síncrona, o serviço chamador espera a resposta do outro. Se o serviço de destino estiver fora do ar ou lento, isso propaga o problema (a menos que você use um Circuit Breaker pra conter o impacto)."
+      },
+      {
+        "question": "Qual a função de um API Gateway numa arquitetura de microservices?",
+        "options": [
+          "Armazenar os dados de todos os serviços num único lugar",
+          "Servir como ponto de entrada único, roteando requisições e podendo centralizar autenticação",
+          "Substituir o banco de dados de cada serviço",
+          "Compilar o código de todos os microservices"
+        ],
+        "correctIndex": 1,
+        "explanation": "O API Gateway é a porta de entrada única do sistema — o cliente não precisa saber os endereços internos de cada microservice; o Gateway roteia a requisição pro serviço certo, e frequentemente centraliza preocupações transversais como autenticação e rate limiting."
+      }
+    ]
+  },
+  {
+    "slug": "circuit-breaker-resiliencia",
+    "title": "Circuit Breaker e Resiliência",
+    "category": "MICROSERVICES",
+    "orderIndex": 2,
+    "difficulty": "AVANCADO",
+    "content": "Num sistema distribuído, falhas de rede e serviços fora do ar são **esperadas**, não exceção. Sem uma estratégia de resiliência, uma falha num serviço se propaga em cascata pra todo o sistema — o chamado \"efeito dominó\".\n\n**Circuit Breaker** (padrão popularizado pela biblioteca Netflix Hystrix, hoje substituída por **Resilience4j** no ecossistema Spring) funciona como o disjuntor elétrico de uma casa: monitora a taxa de falha de chamadas pra um serviço, e se ultrapassar um limite, \"abre o circuito\" — passa a rejeitar chamadas IMEDIATAMENTE (sem nem tentar), executando um **fallback** em vez disso. Depois de um tempo, ele deixa passar algumas chamadas de teste (\"half-open\") pra ver se o serviço já voltou; se voltou, fecha o circuito de novo.\n\nIsso evita dois problemas: (1) sobrecarregar ainda mais um serviço que já está com dificuldade, e (2) deixar threads do seu próprio serviço travadas esperando timeout de um serviço que não vai responder.\n\nGeralmente combinado com **Retry** (tenta de novo automaticamente, com backoff) e **TimeLimiter** (desiste depois de X tempo, não espera indefinidamente) — as três anotações do Resilience4j trabalham juntas.",
+    "codeExample": "@Service\npublic class PagamentoClient {\n\n    private final RestClient restClient;\n\n    public PagamentoClient(RestClient restClient) {\n        this.restClient = restClient;\n    }\n\n    @CircuitBreaker(name = \"pagamentoService\", fallbackMethod = \"fallbackPagamento\")\n    @Retry(name = \"pagamentoService\")\n    @TimeLimiter(name = \"pagamentoService\")\n    public StatusPagamento consultar(String pedidoId) {\n        return restClient.get()\n            .uri(\"/pagamentos/{id}/status\", pedidoId)\n            .retrieve()\n            .body(StatusPagamento.class);\n    }\n\n    // Se o serviço de pagamentos cair, o circuito abre e isso é chamado\n    // IMEDIATAMENTE, sem nem tentar a chamada de rede — não derruba o\n    // serviço de pedidos junto\n    private StatusPagamento fallbackPagamento(String pedidoId, Exception ex) {\n        return StatusPagamento.INDISPONIVEL;\n    }\n}",
+    "codeExampleBad": "// Sem circuit breaker: cada chamada tenta de verdade, mesmo sabendo\n// (pelas últimas 50 tentativas) que o serviço está fora do ar\n@Service\npublic class PagamentoClientSemProtecao {\n\n    public StatusPagamento consultar(String pedidoId) {\n        // se pagamentoService está caído, isso trava por até o timeout padrão\n        // (às vezes 30s+) — em alto tráfego, isso esgota o pool de threads/conexões\n        // do PRÓPRIO serviço de pedidos, derrubando ele também\n        return restClient.get()\n            .uri(\"/pagamentos/{id}/status\", pedidoId)\n            .retrieve()\n            .body(StatusPagamento.class);\n    }\n}\n// Isso é o \"efeito dominó\": um serviço fora do ar derruba os que dependem dele.",
+    "keyPoints": [
+      "Circuit Breaker monitora taxa de falha e 'abre o circuito' (rejeita chamadas imediatamente) quando um limiar é ultrapassado",
+      "Estado half-open testa periodicamente se o serviço já voltou, antes de fechar o circuito de novo",
+      "fallbackMethod define o que fazer quando o circuito está aberto — evita travar threads esperando um serviço que não vai responder",
+      "Resilience4j substituiu o Hystrix (Netflix) como padrão no ecossistema Spring",
+      "Combinado com Retry (tenta de novo) e TimeLimiter (desiste depois de X tempo)"
+    ],
+    "relatedTopicSlugs": ["arquitetura-microservices", "saga-transacoes-distribuidas"],
+    "quizzes": [
+      {
+        "question": "O que acontece quando um Circuit Breaker 'abre o circuito'?",
+        "options": [
+          "Ele começa a fazer mais tentativas de chamada do que o normal",
+          "Ele passa a rejeitar chamadas imediatamente, executando um fallback, sem tentar a chamada real",
+          "Ele reinicia o serviço automaticamente",
+          "Ele apaga os dados do cache local"
+        ],
+        "correctIndex": 1,
+        "explanation": "Com o circuito aberto, o Circuit Breaker para de tentar a chamada real (que provavelmente falharia ou demoraria) e executa o fallbackMethod imediatamente — protegendo tanto o serviço chamador quanto o chamado."
+      },
+      {
+        "question": "Por que o estado 'half-open' existe entre 'aberto' e 'fechado'?",
+        "options": [
+          "É um bug conhecido do Resilience4j",
+          "Permite testar com poucas chamadas se o serviço já se recuperou, antes de voltar a liberar tráfego total",
+          "Serve só para fins de log e auditoria",
+          "Significa que o circuito está permanentemente quebrado"
+        ],
+        "correctIndex": 1,
+        "explanation": "Half-open deixa passar um número limitado de chamadas de teste. Se elas tiverem sucesso, o circuito fecha (volta ao normal); se falharem, volta a abrir — evita alternar bruscamente entre 'tudo bloqueado' e 'tudo liberado'."
+      },
+      {
+        "question": "Qual biblioteca é o padrão atual no ecossistema Spring para Circuit Breaker, tendo substituído o Hystrix?",
+        "options": ["Spring Cloud Gateway", "Resilience4j", "Eureka", "Kafka"],
+        "correctIndex": 1,
+        "explanation": "Resilience4j é a biblioteca leve e modular que se tornou o padrão para Circuit Breaker, Retry, Rate Limiter e Bulkhead no ecossistema Spring, depois que a Netflix descontinuou o desenvolvimento ativo do Hystrix."
+      }
+    ]
+  },
+  {
+    "slug": "saga-transacoes-distribuidas",
+    "title": "Padrão Saga: Transações Distribuídas",
+    "category": "MICROSERVICES",
+    "orderIndex": 3,
+    "difficulty": "AVANCADO",
+    "content": "Num monólito, uma operação que mexe em várias tabelas usa uma transação ACID: se algo falha no meio, `rollback` desfaz tudo automaticamente (é exatamente o que `@Transactional` faz). Mas em microservices, cada serviço tem seu próprio banco — **não existe uma transação ACID que atravesse vários serviços**. Então como garantir consistência quando um fluxo de negócio passa por múltiplos serviços?\n\nA resposta é o **padrão Saga**: em vez de uma transação única, você quebra o fluxo em uma sequência de passos locais, cada um com sua própria transação (local, dentro de um único serviço) — e, crucialmente, cada passo tem uma **ação de compensação** correspondente, pra desfazer o que já foi feito caso um passo posterior falhe.\n\nExemplo: reservar estoque → cobrar pagamento → confirmar pedido. Se \"cobrar pagamento\" falhar depois que \"reservar estoque\" já teve sucesso, a Saga executa a compensação de estoque (\"cancelar reserva\") — não existe um `ROLLBACK` mágico entre serviços, você **programa explicitamente** o que desfazer.\n\nDuas formas de coordenar uma Saga: **orquestrada** (um serviço central comanda cada passo e decide quando compensar) ou **coreografada** (cada serviço reage a eventos dos outros, sem um comandante central — mais desacoplado, mas mais difícil de visualizar o fluxo completo).",
+    "codeExample": "// Saga coreografada via eventos — cada serviço reage e publica o próximo evento\n\n@Service\npublic class PedidoSagaListener {\n\n    @EventListener\n    public void aoReceberEstoqueReservado(EstoqueReservadoEvent evento) {\n        // passo seguinte: tentar cobrar o pagamento\n        eventPublisher.publish(new CobrarPagamentoCommand(evento.pedidoId()));\n    }\n\n    @EventListener\n    public void aoReceberPagamentoFalhou(PagamentoFalhouEvent evento) {\n        // AÇÃO DE COMPENSAÇÃO: desfaz o passo anterior (reserva de estoque)\n        // — não existe rollback automático entre serviços, isso é código explícito\n        eventPublisher.publish(new CancelarReservaEstoqueCommand(evento.pedidoId()));\n    }\n}",
+    "codeExampleBad": "// Tentativa (errada) de replicar uma transação ACID entre serviços:\n// isso NÃO existe em arquitetura de microservices\n@Transactional // <- essa anotação só controla UMA conexão/transação de banco,\npublic void processarPedidoCompleto(Pedido pedido) {\n    estoqueService.reservar(pedido);      // chamada de rede pra OUTRO serviço\n    pagamentoService.cobrar(pedido);       // chamada de rede pra OUTRO serviço\n    notificacaoService.confirmar(pedido);  // chamada de rede pra OUTRO serviço\n    // Se cobrar() falhar, @Transactional NÃO desfaz o reservar() que já rodou\n    // em outro serviço, com seu próprio banco — @Transactional só enxerga\n    // a transação LOCAL deste serviço, nunca atravessa a rede.\n}",
+    "keyPoints": [
+      "Sem transação ACID entre microservices — cada serviço só controla sua própria transação local",
+      "Saga quebra um fluxo de negócio em passos locais, cada um com sua ação de compensação correspondente",
+      "Compensação é código explícito (ex: 'cancelar reserva'), não um rollback automático",
+      "Saga orquestrada: um serviço central comanda os passos. Saga coreografada: serviços reagem a eventos, sem comandante central",
+      "@Transactional do Spring NUNCA atravessa fronteira de rede entre serviços — só controla a transação local daquele serviço"
+    ],
+    "relatedTopicSlugs": ["arquitetura-microservices", "transacoes-transactional"],
+    "quizzes": [
+      {
+        "question": "Por que @Transactional do Spring não resolve consistência entre múltiplos microservices?",
+        "options": [
+          "Porque @Transactional está obsoleto desde o Spring 6",
+          "Porque @Transactional só controla a transação LOCAL de um serviço — não atravessa chamadas de rede pra outros serviços",
+          "Porque @Transactional só funciona com bancos NoSQL",
+          "Não é verdade — @Transactional funciona normalmente entre serviços diferentes"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Transactional gerencia uma conexão/transação de banco dentro do MESMO serviço. Uma chamada de rede pra outro microservice (que tem seu próprio banco) está totalmente fora do escopo dessa transação — se algo falhar depois, não há rollback automático do que já rodou no outro serviço."
+      },
+      {
+        "question": "O que é uma 'ação de compensação' no padrão Saga?",
+        "options": [
+          "Um bônus financeiro oferecido ao cliente",
+          "Uma operação explícita que desfaz o efeito de um passo anterior da Saga, caso um passo posterior falhe",
+          "Um tipo de cache distribuído entre serviços",
+          "Uma forma de acelerar o processamento de transações"
+        ],
+        "correctIndex": 1,
+        "explanation": "Como não existe rollback automático entre serviços, cada passo da Saga que muda estado precisa de uma compensação programada explicitamente (ex: 'reservar estoque' tem como compensação 'cancelar reserva'), acionada se algo mais adiante no fluxo falhar."
+      },
+      {
+        "question": "Qual a diferença entre Saga orquestrada e Saga coreografada?",
+        "options": [
+          "Orquestrada usa só REST; coreografada usa só gRPC",
+          "Orquestrada tem um serviço central comandando os passos; coreografada tem serviços reagindo a eventos, sem comandante central",
+          "Não há diferença real entre as duas abordagens",
+          "Coreografada é sempre mais rápida que orquestrada"
+        ],
+        "correctIndex": 1,
+        "explanation": "Na orquestrada, um serviço (o orquestrador) decide e comanda cada passo explicitamente. Na coreografada, cada serviço escuta eventos e decide sozinho como reagir — mais desacoplado, mas mais difícil de enxergar o fluxo completo num único lugar."
+      }
+    ]
+  }
+]
