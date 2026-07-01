@@ -3,9 +3,9 @@ spring:
     name: javabase
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/javabase
-    username: javabase
-    password: javabase
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/javabase}
+    username: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
