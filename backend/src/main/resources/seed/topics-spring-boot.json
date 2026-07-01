@@ -301,5 +301,111 @@
         "explanation": "O Spring escolhe o @ExceptionHandler mais específico para o tipo de exceção lançada. O handler de Exception.class só é acionado quando nenhum handler mais específico corresponde ao tipo — funcionando como uma rede de segurança (catch-all)."
       }
     ]
+  },
+  {
+    "slug": "spring-ioc-autoconfiguracao",
+    "title": "IoC Container e Auto-configuração",
+    "category": "SPRING_BOOT",
+    "orderIndex": 7,
+    "difficulty": "INTERMEDIARIO",
+    "content": "\"Spring Boot é mágica\" é a resposta de quem ainda não entendeu como funciona. Por baixo, é tudo baseado em anotações `@ConditionalOn*` decidindo o que configurar, a partir do que existe no classpath e nas properties.\n\n**IoC Container** (`ApplicationContext`) é o núcleo do Spring Framework: ele escaneia classes anotadas com `@Component` (e suas especializações `@Service`, `@Repository`, `@Controller`), cria as instâncias (beans), resolve e injeta as dependências entre eles, e por cima disso ainda aplica proxies de AOP pra recursos como `@Transactional` e `@Cacheable`.\n\n**Spring Framework vs Spring Boot** — pergunta clássica de entrevista. Spring Framework é o container IoC + os módulos (Core, AOP, Data, MVC). Spring Boot é uma camada de **auto-configuração + convenção sobre configuração** em cima dele: ele lê o classpath e decide sozinho o que configurar. Viu `spring-boot-starter-data-jpa` + um driver JDBC no classpath? Ele auto-configura um `DataSource`, sem você escrever XML nem `@Bean` manual.\n\nO mecanismo por trás disso são anotações condicionais: `@ConditionalOnClass` (só ativa se uma classe existir no classpath), `@ConditionalOnMissingBean` (só ativa se você não tiver criado seu próprio bean daquele tipo — assim seu bean sempre tem prioridade sobre o auto-configurado), `@ConditionalOnProperty` (liga/desliga por uma property do `application.yml`).",
+    "codeExample": "// Como o Spring Boot decide auto-configurar um DataSource (simplificado, mas é assim de verdade)\n@Configuration\n@ConditionalOnClass(DataSource.class)          // só ativa se a classe existir no classpath\n@ConditionalOnMissingBean(DataSource.class)    // só ativa se você não criou seu próprio bean\npublic class DataSourceAutoConfiguration {\n\n    @Bean\n    public DataSource dataSource(DataSourceProperties props) {\n        return props.initializeDataSourceBuilder().build();\n    }\n}\n\n// Se você declarar seu próprio @Bean DataSource em algum lugar do seu código,\n// @ConditionalOnMissingBean detecta isso e a auto-configuração do Spring Boot\n// simplesmente não roda — seu bean manual sempre ganha.",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "ApplicationContext (IoC Container): escaneia @Component, cria beans, resolve DI, aplica proxies de AOP",
+      "Spring Framework = container + módulos (Core, AOP, Data, MVC). Spring Boot = auto-configuração + convenção sobre configuração em cima dele",
+      "@ConditionalOnClass: ativa uma configuração só se uma classe existir no classpath",
+      "@ConditionalOnMissingBean: seu bean manual sempre tem prioridade sobre o auto-configurado",
+      "Spring Boot decide o que configurar olhando o classpath e as properties — não é mágica, é lógica condicional"
+    ],
+    "relatedTopicSlugs": ["injecao-de-dependencia", "bean-e-anotacoes-basicas"],
+    "quizzes": [
+      {
+        "question": "Qual a diferença fundamental entre Spring Framework e Spring Boot?",
+        "options": [
+          "São a mesma coisa, só com nomes diferentes",
+          "Spring Boot é o container IoC; Spring Framework é a auto-configuração",
+          "Spring Framework é o container IoC + módulos; Spring Boot adiciona auto-configuração e convenção sobre configuração em cima dele",
+          "Spring Boot substitui completamente o Spring Framework, que está obsoleto"
+        ],
+        "correctIndex": 2,
+        "explanation": "Spring Framework fornece a base (IoC container, AOP, Data, MVC). Spring Boot não o substitui — adiciona uma camada de auto-configuração que decide o que ativar baseado no classpath e nas properties, eliminando configuração manual repetitiva."
+      },
+      {
+        "question": "O que a anotação `@ConditionalOnMissingBean` garante?",
+        "options": [
+          "Que o bean nunca é criado",
+          "Que a auto-configuração só roda se você não tiver criado seu próprio bean daquele tipo — seu bean manual tem prioridade",
+          "Que o bean é criado em todas as circunstâncias, mesmo duplicado",
+          "Que dois beans do mesmo tipo sempre coexistem no contexto"
+        ],
+        "correctIndex": 1,
+        "explanation": "@ConditionalOnMissingBean é o mecanismo que permite 'sobrescrever' uma auto-configuração do Spring Boot simplesmente declarando seu próprio @Bean — o Spring detecta que já existe um bean daquele tipo e pula a configuração automática."
+      },
+      {
+        "question": "O que dispara a auto-configuração de um DataSource pelo Spring Boot?",
+        "options": [
+          "Um arquivo XML de configuração obrigatório",
+          "A presença de um starter (ex: spring-boot-starter-data-jpa) + driver JDBC no classpath, sem bean manual conflitante",
+          "Uma chamada explícita a um método estático de configuração",
+          "Nada — sempre precisa configurar manualmente, mesmo com o starter"
+        ],
+        "correctIndex": 1,
+        "explanation": "@ConditionalOnClass(DataSource.class) verifica se a classe existe no classpath (trazida por um starter), e @ConditionalOnMissingBean confirma que você não definiu seu próprio DataSource — só então a auto-configuração entra em ação."
+      }
+    ]
+  },
+  {
+    "slug": "transacoes-transactional",
+    "title": "Transações e a Armadilha do Self-Invocation",
+    "category": "SPRING_BOOT",
+    "orderIndex": 8,
+    "difficulty": "AVANCADO",
+    "content": "`@Transactional` diz ao Spring pra envolver a execução de um método numa transação de banco: se tudo correr bem, commit no final; se qualquer exception não capturada escapar do método, **rollback de tudo** — inclusive de operações que já tinham sido \"salvas\" dentro daquele método.\n\nO nível de isolamento (`isolation`) controla o que uma transação enxerga do trabalho de outras transações concorrentes. `READ_COMMITTED` (o padrão da maioria dos bancos) só enxerga dados já commitados por outras transações — evita \"dirty read\", mas ainda permite outras anomalias como \"non-repeatable read\".\n\n**A armadilha clássica**: `@Transactional` **não funciona** quando o método é chamado de dentro da mesma classe (self-invocation). O Spring implementa isso via proxy AOP — quando você chama `service.metodoTransacional()` de FORA da classe, a chamada passa pelo proxy, que abre a transação antes de delegar pro método real. Mas se `metodoTransacional()` for chamado de DENTRO da própria classe (`this.metodoTransacional()`, mesmo que implícito), a chamada vai direto pro método real, pulando o proxy — e a anotação é silenciosamente ignorada, sem erro, sem aviso.\n\nEsse projeto já passou por essa exata armadilha com `@Cacheable`: é por isso que `TopicSnapshotCache` existe como uma classe separada de `TopicService`, em vez de ser só um método interno — a mesma lógica de proxy AOP que afeta `@Transactional` afeta `@Cacheable`, `@Async` e qualquer outra anotação baseada em proxy do Spring.",
+    "codeExample": "@Service\npublic class TransferenciaService {\n\n    private final ContaRepository contaRepository;\n\n    public TransferenciaService(ContaRepository contaRepository) {\n        this.contaRepository = contaRepository;\n    }\n\n    // isolation = READ_COMMITTED: não enxerga dados não commitados de outras transações\n    // timeout = 5: desiste depois de 5 segundos, evita travar recursos indefinidamente\n    @Transactional(isolation = Isolation.READ_COMMITTED, timeout = 5)\n    public void transferir(Long origemId, Long destinoId, BigDecimal valor) {\n        Conta origem = contaRepository.findById(origemId)\n            .orElseThrow(() -> new ContaNaoEncontradaException(origemId));\n        Conta destino = contaRepository.findById(destinoId)\n            .orElseThrow(() -> new ContaNaoEncontradaException(destinoId));\n\n        origem.debitar(valor);   // se isso (ou a linha de baixo) lançar exceção,\n        destino.creditar(valor); // o Spring faz ROLLBACK de tudo, inclusive do debitar()\n        // commit automático só acontece no fim do método, se nada deu errado\n    }\n}",
+    "codeExampleBad": "@Service\npublic class PedidoService {\n\n    public void processar(Pedido pedido) {\n        // ...\n        salvar(pedido); // chamada INTERNA — não passa pelo proxy do Spring\n    }\n\n    @Transactional\n    public void salvar(Pedido pedido) {\n        pedidoRepository.save(pedido);\n        // se algo der errado depois deste ponto, dentro de processar(),\n        // NÃO HÁ ROLLBACK — @Transactional foi silenciosamente ignorado,\n        // porque a chamada veio de 'this', não de fora da classe via proxy\n    }\n}\n// Correção: mova salvar() para outro bean (igual TopicSnapshotCache neste projeto),\n// ou injete uma self-reference via @Lazy — nunca conte com self-invocation funcionando.",
+    "keyPoints": [
+      "@Transactional: commit se tudo correr bem, rollback total se uma exception não capturada escapar",
+      "isolation controla o que uma transação enxerga de outras transações concorrentes (READ_COMMITTED é o padrão mais comum)",
+      "Self-invocation (chamar um método @Transactional de dentro da mesma classe) pula o proxy AOP e a anotação é IGNORADA silenciosamente",
+      "A mesma armadilha afeta @Cacheable, @Async e qualquer anotação baseada em proxy do Spring",
+      "Solução: mover o método pra um bean separado (como TopicSnapshotCache neste projeto) ou usar self-injection com @Lazy"
+    ],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "injecao-de-dependencia"],
+    "quizzes": [
+      {
+        "question": "O que acontece se uma exception não capturada escapar de um método @Transactional?",
+        "options": [
+          "Só a última operação de banco é desfeita",
+          "O Spring faz rollback de TODAS as operações feitas dentro daquele método",
+          "Nada acontece — os dados já salvos até ali permanecem gravados",
+          "O método é executado novamente automaticamente, até não dar erro"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Transactional garante atomicidade — se uma exception (unchecked, por padrão) escapar do método, o Spring desfaz TODAS as operações de banco feitas dentro daquela transação, não só a última."
+      },
+      {
+        "question": "Por que `service.salvar(pedido)`, chamado de DENTRO de `service.processar()` (mesma classe), ignora o `@Transactional` de `salvar()`?",
+        "options": [
+          "Porque @Transactional só funciona em métodos static",
+          "Porque a chamada interna não passa pelo proxy AOP do Spring, que é onde a lógica de transação é aplicada",
+          "Porque salvar() precisa ser chamado a partir de outro Service, nunca do mesmo",
+          "Não é verdade — sempre funciona normalmente, não importa de onde é chamado"
+        ],
+        "correctIndex": 1,
+        "explanation": "O Spring usa um proxy dinâmico ao redor do bean para interceptar chamadas e aplicar comportamento como @Transactional. Uma chamada 'this.salvar()' de dentro da própria classe vai direto pro método real, sem passar pelo proxy — a anotação simplesmente não é acionada, sem erro nem aviso."
+      },
+      {
+        "question": "Qual estratégia este próprio projeto (JavaBase) usou para evitar essa armadilha com @Cacheable?",
+        "options": [
+          "Desativou o cache completamente em produção",
+          "Moveu o método cacheado para um bean (TopicSnapshotCache) separado do bean que o chama",
+          "Usou reflection para forçar a chamada a passar pelo proxy",
+          "Anotou o método com @Transactional além de @Cacheable"
+        ],
+        "correctIndex": 1,
+        "explanation": "TopicService injeta TopicSnapshotCache como dependência e chama seu método através dessa referência — uma chamada externa de verdade, que passa pelo proxy do Spring e aciona o @Cacheable corretamente. É a mesma solução recomendada para @Transactional."
+      }
+    ]
   }
 ]

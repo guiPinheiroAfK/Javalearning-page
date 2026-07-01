@@ -152,5 +152,58 @@
         "explanation": "orElseThrow aceita um Supplier de exceção — quando o Optional está vazio, ele constrói e lança exatamente a exceção fornecida (aqui, UserNotFoundException), permitindo mensagens de erro específicas do domínio em vez de um NoSuchElementException genérico."
       }
     ]
+  },
+  {
+    "slug": "records-sealed-pattern-matching",
+    "title": "Records, Sealed Classes e Pattern Matching",
+    "category": "JAVA_MODERNO",
+    "orderIndex": 4,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Três recursos que mudaram a forma de modelar dados e fluxo de controle em Java moderno (17 LTS em diante), e que hoje são esperados de quem diz \"conheço Java moderno\" numa entrevista.\n\n**Record** já apareceu na seção sobre DTO — mas o uso vai além de transportar dados entre camadas. Um record pode ter um **construtor compacto** (sem repetir a lista de parâmetros) pra validar invariantes na criação, rejeitando estados inválidos antes mesmo do objeto existir.\n\n**Sealed interfaces/classes** (`sealed ... permits`) restringem quais classes podem implementar/estender um tipo — diferente de uma interface aberta, onde qualquer um pode implementar. Isso é o que permite ao compilador garantir **exaustividade**: se você faz um `switch` sobre um tipo sealed e trata todos os `permits`, não precisa de `default` — o compilador sabe que não existe mais nenhum caso possível.\n\n**Pattern matching em switch** (Java 21) combina com sealed pra modelar estados de forma muito mais segura que uma enum simples: cada \"caso\" pode carregar dados próprios (como um record), e o compilador força você a tratar todos eles. Errou um caso? Não compila — diferente de um enum onde esquecer um case só vira bug em runtime.",
+    "codeExample": "// Record com validação no construtor compacto — não existe PedidoDTO com valor negativo\npublic record PedidoDTO(Long id, BigDecimal valor, StatusPedido status) {\n    public PedidoDTO { // construtor compacto: sem repetir os parâmetros\n        if (valor.compareTo(BigDecimal.ZERO) < 0) {\n            throw new IllegalArgumentException(\"Valor não pode ser negativo\");\n        }\n    }\n}\n\n// Sealed interface: só essas 3 classes podem implementar ResultadoPagamento\npublic sealed interface ResultadoPagamento\n    permits Aprovado, Recusado, Pendente {}\n\npublic record Aprovado(String txId) implements ResultadoPagamento {}\npublic record Recusado(String motivo) implements ResultadoPagamento {}\npublic record Pendente(LocalDateTime expiraEm) implements ResultadoPagamento {}\n\n// Pattern matching exaustivo: o compilador GARANTE que todo caso foi tratado\nString mensagem = switch (resultado) {\n    case Aprovado a -> \"OK: \" + a.txId();\n    case Recusado r -> \"Falhou: \" + r.motivo();\n    case Pendente p -> \"Aguardando até \" + p.expiraEm();\n    // sem default — e não precisa, o compilador sabe que não sobra mais nenhum caso\n};",
+    "codeExampleBad": "// Sem sealed, um switch sobre uma interface comum PRECISA de default,\n// mesmo que você (acredite) ter coberto todos os casos reais\npublic interface ResultadoPagamento {}\npublic record Aprovado(String txId) implements ResultadoPagamento {}\npublic record Recusado(String motivo) implements ResultadoPagamento {}\n\nString mensagem = switch (resultado) {\n    case Aprovado a -> \"OK: \" + a.txId();\n    case Recusado r -> \"Falhou: \" + r.motivo();\n    default -> throw new IllegalStateException(\"Caso inesperado\"); // precisa existir\n};\n// Se alguém criar uma nova classe implementando ResultadoPagamento (ex: Pendente),\n// o compilador NÃO avisa. O erro só aparece em runtime, quando cair no default.",
+    "keyPoints": [
+      "Record pode ter construtor compacto pra validar invariantes na criação, sem repetir os parâmetros",
+      "sealed ... permits restringe quais classes podem implementar/estender um tipo",
+      "Pattern matching em switch sobre um tipo sealed é EXAUSTIVO — o compilador garante que todo caso foi tratado, sem precisar de default",
+      "Sem sealed, adicionar um novo caso a uma hierarquia não avisa em compile-time — só quebra em runtime",
+      "record + sealed + switch é o jeito moderno de modelar 'um valor que pode ser um de N tipos conhecidos'"
+    ],
+    "relatedTopicSlugs": ["if-else-switch", "interface-vs-classe-abstrata", "dto"],
+    "quizzes": [
+      {
+        "question": "O que um construtor compacto de record permite fazer?",
+        "options": [
+          "Omitir campos do record",
+          "Validar invariantes no momento da criação, sem repetir a lista de parâmetros",
+          "Herdar de outra classe",
+          "Tornar o record mutável"
+        ],
+        "correctIndex": 1,
+        "explanation": "O construtor compacto (record Nome { ... } sem parênteses repetindo os parâmetros) permite adicionar validação ou normalização antes da atribuição automática dos campos."
+      },
+      {
+        "question": "Por que um switch sobre um tipo sealed pode dispensar o `default`?",
+        "options": [
+          "Porque switch sempre dispensa default em Java",
+          "Porque o compilador conhece todos os permits e garante que todo caso foi tratado",
+          "Porque sealed desativa a checagem de exaustividade",
+          "É um erro de sintaxe — sealed sempre exige default"
+        ],
+        "correctIndex": 1,
+        "explanation": "'sealed ... permits' declara explicitamente todas as implementações possíveis de um tipo. O compilador usa essa informação para verificar, em compile-time, que o switch cobre TODOS os casos possíveis — dispensando o default e pegando esquecimentos antes mesmo de rodar o código."
+      },
+      {
+        "question": "Qual o risco de modelar estados com uma interface comum (não sealed) em vez de sealed?",
+        "options": [
+          "Interfaces comuns são mais lentas em runtime",
+          "Adicionar uma nova implementação não avisa o compilador sobre switches que esqueceram de tratá-la",
+          "Interfaces comuns não podem ser implementadas por records",
+          "Não há diferença nenhuma entre os dois casos"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sem sealed, qualquer código pode implementar a interface livremente. Um switch sobre ela precisa de default pra compilar, e se alguém adicionar uma nova implementação depois, nenhum switch existente é avisado — o erro só aparece em runtime, quando cair no caminho do default."
+      }
+    ]
   }
 ]
