@@ -1,0 +1,103 @@
+[
+  {
+    "slug": "jvm-memory-model",
+    "title": "JVM Memory Model",
+    "category": "CONCORRENCIA",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "A JVM organiza memória em áreas bem definidas, e entender essa organização é a base pra diagnosticar qualquer problema de performance ou memory leak.\n\n**Heap** — onde os objetos vivem. Dividido em duas partes: **Young Generation** (subdividida em Eden + Survivor 0 + Survivor 1), onde todo objeto nasce; e **Old Generation** (ou Tenured), onde vão os objetos que sobreviveram a vários ciclos de coleta — presumivelmente de vida longa.\n\n**Non-Heap** — Metaspace (metadados das classes carregadas, substituiu o antigo PermGen desde o Java 8) e Code Cache (bytecode compilado pelo JIT pra código de máquina nativo).\n\n**Por thread** — cada thread tem sua própria Stack (frames de método, variáveis locais) e PC Register (aponta pra instrução sendo executada). É por isso que `StackOverflowError` é por thread, não global.\n\n**Minor GC** roda só na Young Generation — rápido, frequente, geralmente imperceptível. **Major/Full GC** varre a Old Generation inteira (às vezes a heap toda) — é o vilão de latência em produção: dependendo do coletor, ele pausa a aplicação inteira (\"stop-the-world\"). Um objeto migra de Young pra Old depois de sobreviver a N ciclos de Minor GC (o \"tenuring threshold\").",
+    "codeExample": "java -Xms2g -Xmx2g \\\n     -XX:+UseG1GC \\\n     -XX:MaxGCPauseMillis=200 \\\n     -XX:+HeapDumpOnOutOfMemoryError \\\n     -XX:HeapDumpPath=/var/dumps \\\n     -jar app.jar\n\n# -Xms = -Xmx: heap inicial igual ao máximo, evita resize em runtime (operação custosa)\n# -XX:+UseG1GC: coletor default desde o Java 9, bom para heaps grandes\n# -XX:MaxGCPauseMillis: é uma META de pausa, não uma garantia\n# -XX:+HeapDumpOnOutOfMemoryError: gera um dump automático se estourar OutOfMemoryError,\n#   essencial para investigar depois — sem isso, você só sabe QUE explodiu, não POR QUÊ",
+    "codeExampleBad": "public class CacheRuim {\n    // Mapa estático que só cresce, nunca remove nada — memory leak clássico\n    private static final Map<String, byte[]> cache = new HashMap<>();\n\n    public void guardar(String chave, byte[] dados) {\n        cache.put(chave, dados); // nunca é removido, mesmo sem uso\n    }\n}\n// Com tráfego real, isso enche a Old Generation aos poucos até OutOfMemoryError.\n// Nenhuma configuração de heap resolve isso — o problema é lógico (referência viva\n// pra sempre), não de tamanho de memória. Isso é exatamente por que @Cacheable\n// com TTL (como o CacheConfig deste projeto) existe: cache sem expiração é um leak.",
+    "keyPoints": [
+      "Heap: Young Gen (Eden + S0 + S1, onde objetos nascem) e Old Gen (objetos de vida longa)",
+      "Non-Heap: Metaspace (metadados de classe) e Code Cache (bytecode JIT compilado)",
+      "Cada thread tem sua própria Stack e PC Register",
+      "Minor GC (rápido, só Young Gen) vs Major/Full GC (lento, pode ser stop-the-world)",
+      "-Xms = -Xmx evita resize de heap em runtime; G1GC é o coletor default desde o Java 9"
+    ],
+    "relatedTopicSlugs": ["jvm-jre-jdk", "concorrencia-thread-safety"],
+    "quizzes": [
+      {
+        "question": "Onde um objeto Java é alocado primeiro, ao ser criado com `new`?",
+        "options": ["Old Generation", "Eden, dentro da Young Generation", "Metaspace", "Code Cache"],
+        "correctIndex": 1,
+        "explanation": "Todo objeto novo nasce na Eden, a parte inicial da Young Generation. Só migra para a Old Generation depois de sobreviver a vários ciclos de Minor GC (o tenuring threshold)."
+      },
+      {
+        "question": "Por que Full GC é considerado o 'vilão de latência' em aplicações de produção?",
+        "options": [
+          "Porque ele roda a cada segundo, sem exceção",
+          "Porque pode pausar a aplicação inteira (stop-the-world) ao varrer a Old Generation",
+          "Porque ele apaga o Metaspace completamente",
+          "Full GC só existe em ambiente de desenvolvimento"
+        ],
+        "correctIndex": 1,
+        "explanation": "Full GC varre a Old Generation (às vezes a heap inteira) e, dependendo do coletor, pausa TODAS as threads da aplicação até terminar — um impacto direto e visível na latência de requisições em andamento."
+      },
+      {
+        "question": "Por que setar `-Xms` igual a `-Xmx` é uma prática comum em produção?",
+        "options": [
+          "Reduz o uso de CPU do Garbage Collector",
+          "Evita que a JVM precise redimensionar o heap em runtime, uma operação custosa",
+          "É obrigatório desde o Java 9",
+          "Desliga o Garbage Collector completamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Se -Xms (inicial) for menor que -Xmx (máximo), a JVM pode precisar expandir o heap durante a execução — uma operação relativamente cara. Fixar os dois no mesmo valor evita esse custo, ao preço de reservar mais memória desde o início do processo."
+      }
+    ]
+  },
+  {
+    "slug": "concorrencia-thread-safety",
+    "title": "Concorrência: synchronized, Lock e Atomic",
+    "category": "CONCORRENCIA",
+    "orderIndex": 2,
+    "difficulty": "AVANCADO",
+    "content": "Um dos temas que mais separa quem \"sabe usar Thread\" de quem entende concorrência de verdade: **como evitar race condition** quando múltiplas threads acessam o mesmo estado mutável.\n\nO problema clássico: `valor++` parece uma operação só, mas na verdade é **read-modify-write** — três passos separados. Se duas threads executam isso ao mesmo tempo, uma pode sobrescrever o incremento da outra, perdendo uma atualização.\n\nTrês formas de resolver, cada uma com seu trade-off:\n\n**`synchronized`** — o jeito mais simples: só uma thread por vez entra no bloco. Bloqueante (threads esperando ficam paradas) e sem timeout — se uma thread trava lá dentro, as outras esperam pra sempre.\n\n**`ReentrantLock`** — como `synchronized`, mas com superpoderes: `tryLock()` com timeout (não espera pra sempre), fairness configurável (ordem de chegada), e `lockInterruptibly()`. Use quando precisa de controle fino que `synchronized` não oferece.\n\n**`AtomicInteger` (e a família `Atomic*`)** — **lock-free**, usando uma instrução de hardware chamada CAS (Compare-And-Swap): \"troca o valor só se ele ainda for o que eu esperava\". Sem bloqueio, melhor performance sob alta contenção pra operações simples.\n\n**Virtual Threads (Java 21, Project Loom)** — resolvem um problema diferente: o modelo tradicional \"1 thread do SO por request\" esgota o sistema operacional na casa de milhares de threads simultâneas. Virtual threads são gerenciadas pela JVM, custam kilobytes (não megabytes) cada, e você pode ter milhões delas — ideal pra sistemas de alto tráfego com muitas operações bloqueantes (I/O, chamadas de rede).",
+    "codeExample": "// Lock-free — melhor pra alta contenção em operações simples\npublic class ContadorAtomico {\n    private final AtomicInteger valor = new AtomicInteger(0);\n\n    public void incrementar() {\n        valor.incrementAndGet(); // CAS por baixo dos panos, sem bloqueio de thread\n    }\n}\n\n// ReentrantLock — quando você precisa de tryLock() com timeout\npublic class ContadorComTimeout {\n    private int valor = 0;\n    private final ReentrantLock lock = new ReentrantLock();\n\n    public boolean tentarIncrementar(long timeoutMs) throws InterruptedException {\n        if (lock.tryLock(timeoutMs, TimeUnit.MILLISECONDS)) {\n            try {\n                valor++;\n                return true;\n            } finally {\n                lock.unlock(); // SEMPRE libere no finally, mesmo se der exceção\n            }\n        }\n        return false; // não conseguiu travar a tempo — desiste em vez de esperar pra sempre\n    }\n}\n\n// Virtual Threads (Java 21+): milhões de threads baratas para workloads I/O-bound\nExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();\nexecutor.submit(() -> processarRequisicao(req));",
+    "codeExampleBad": "public class Contador {\n    private int valor = 0;\n\n    public void incrementar() {\n        valor++; // NÃO é atômico: é um read + increment + write em 3 passos separados\n    }\n}\n\n// Com 2 threads chamando incrementar() 1000x cada, o resultado final quase nunca\n// é 2000 — algumas escritas se perdem porque uma thread lê o valor \"antigo\" antes\n// da outra terminar de escrever o seu. Isso é uma race condition clássica.",
+    "keyPoints": [
+      "valor++ não é atômico: é read-modify-write em 3 passos, vulnerável a race condition",
+      "synchronized: simples, bloqueante, sem timeout",
+      "ReentrantLock: tryLock() com timeout, fairness configurável, mais controle fino",
+      "Atomic* (AtomicInteger...): lock-free via CAS, melhor performance em contenção alta com operações simples",
+      "Virtual Threads (Java 21+): baratas (KB), permitem milhões de threads simultâneas — resolve o limite de platform threads em sistemas de alto tráfego"
+    ],
+    "relatedTopicSlugs": ["jvm-memory-model", "processamento-assincrono-async"],
+    "quizzes": [
+      {
+        "question": "Por que `valor++` não é seguro em ambiente multi-thread sem sincronização?",
+        "options": [
+          "Porque int não pode ser incrementado por múltiplas threads",
+          "Porque é uma operação read-modify-write em 3 passos, não atômica",
+          "Porque Java proíbe incrementar variáveis dentro de threads",
+          "Não há problema nenhum, sempre funciona corretamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "valor++ internamente lê o valor atual, soma 1, e escreve de volta — três passos distintos. Duas threads podem ler o mesmo valor 'antigo' antes de qualquer uma escrever, fazendo um incremento inteiro se perder."
+      },
+      {
+        "question": "Qual a principal vantagem do AtomicInteger sobre synchronized para um contador simples sob alta contenção?",
+        "options": [
+          "AtomicInteger tem uma sintaxe mais curta",
+          "AtomicInteger é lock-free (usa CAS), evitando o overhead de bloquear/desbloquear threads",
+          "synchronized não funciona com tipos primitivos",
+          "AtomicInteger permite múltiplas threads escreverem ao mesmo tempo sem qualquer controle"
+        ],
+        "correctIndex": 1,
+        "explanation": "AtomicInteger usa Compare-And-Swap (CAS), uma instrução atômica de hardware — não há bloqueio de thread envolvido, o que reduz drasticamente o overhead em cenários de alta contenção com operações simples como incremento."
+      },
+      {
+        "question": "O que torna Virtual Threads (Java 21+) diferentes de platform threads tradicionais?",
+        "options": [
+          "Elas são mais rápidas para cálculos matemáticos puros e intensivos em CPU",
+          "São muito mais baratas em memória (KB vs MB), permitindo milhões delas simultaneamente",
+          "Elas substituem completamente o Garbage Collector",
+          "Só funcionam dentro de containers Docker"
+        ],
+        "correctIndex": 1,
+        "explanation": "Platform threads mapeiam 1:1 para threads do sistema operacional, um recurso caro e limitado (na casa de milhares). Virtual threads são gerenciadas pela própria JVM e custam apenas kilobytes cada, permitindo escalar para milhões — ideal para workloads I/O-bound de alto tráfego."
+      }
+    ]
+  }
+]
