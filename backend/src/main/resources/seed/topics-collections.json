@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "list-set-map",
+    "title": "List vs Set vs Map",
+    "category": "COLLECTIONS",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "As três interfaces mais usadas do Collections Framework, cada uma resolvendo um problema diferente:\n\n**`List`** (`ArrayList`, `LinkedList`) — coleção **ordenada** que permite **duplicatas**, com acesso indexado (`get(i)`). Use quando a ordem de inserção importa e/ou você precisa de elementos repetidos.\n\n**`Set`** (`HashSet`, `TreeSet`, `LinkedHashSet`) — **sem duplicatas**. `HashSet` não garante ordem (mas é O(1) pra add/contains); `TreeSet` mantém ordem natural (ordenado); `LinkedHashSet` mantém a ordem de inserção. Detecção de duplicata usa `hashCode()` + `equals()` — se sua classe customizada não sobrescrever esses dois métodos corretamente, `Set` não vai detectar objetos \"logicamente iguais\" como duplicados.\n\n**`Map`** (`HashMap`, `TreeMap`, `LinkedHashMap`) — pares **chave-valor**, chave única. `HashMap` é O(1) pra `get`/`put` em média; `TreeMap` mantém as chaves ordenadas; `LinkedHashMap` mantém ordem de inserção. É a estrutura certa quando você precisa \"buscar algo por uma chave\" rapidamente, em vez de percorrer uma lista inteira.",
+    "codeExample": "List<String> lista = new ArrayList<>();\nlista.add(\"a\");\nlista.add(\"a\"); // permite duplicata\nSystem.out.println(lista.size()); // 2\n\nSet<String> conjunto = new HashSet<>();\nconjunto.add(\"a\");\nconjunto.add(\"a\"); // ignorado — já existe\nSystem.out.println(conjunto.size()); // 1\n\nMap<String, Integer> idadePorNome = new HashMap<>();\nidadePorNome.put(\"Ana\", 30);\nidadePorNome.put(\"Ana\", 31); // sobrescreve o valor da chave existente\nSystem.out.println(idadePorNome.get(\"Ana\")); // 31\nSystem.out.println(idadePorNome.size()); // 1 — chave é única",
+    "codeExampleBad": "public class Ponto {\n    int x, y;\n    Ponto(int x, int y) { this.x = x; this.y = y; }\n    // faltou sobrescrever equals() e hashCode()!\n}\n\nSet<Ponto> pontos = new HashSet<>();\npontos.add(new Ponto(1, 1));\npontos.add(new Ponto(1, 1)); // \"logicamente\" igual ao anterior...\n\nSystem.out.println(pontos.size());\n// imprime 2, não 1! Sem equals()/hashCode() customizados, HashSet usa\n// identidade de objeto (referência) — são dois objetos distintos na heap,\n// mesmo com x e y iguais.",
+    "keyPoints": [
+      "List: ordenada, permite duplicatas, acesso por índice",
+      "Set: sem duplicatas — detecção usa hashCode() + equals()",
+      "Map: pares chave-valor, chave única; put() com chave existente sobrescreve o valor",
+      "HashSet/HashMap: sem ordem garantida, O(1) em média. TreeSet/TreeMap: ordenado. LinkedHashSet/LinkedHashMap: ordem de inserção",
+      "Classes customizadas usadas em Set/como chave de Map PRECISAM sobrescrever equals() e hashCode() corretamente"
+    ],
+    "relatedTopicSlugs": ["array-vs-arraylist", "for-while-foreach"],
+    "quizzes": [
+      {
+        "question": "Qual coleção NÃO permite elementos duplicados?",
+        "options": ["ArrayList", "LinkedList", "HashSet", "Vector"],
+        "correctIndex": 2,
+        "explanation": "Set, por definição, não permite duplicatas. HashSet usa hashCode() e equals() dos elementos para detectar e rejeitar duplicatas na hora do add()."
+      },
+      {
+        "question": "O que acontece ao chamar `map.put(\"Ana\", 31)` quando a chave \"Ana\" já existe no Map com valor 30?",
+        "options": [
+          "Lança uma exceção de chave duplicada",
+          "O valor é sobrescrito para 31, a chave continua única",
+          "O Map passa a ter duas entradas com a chave \"Ana\"",
+          "O put() é ignorado silenciosamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Map garante chave única — um put() com uma chave já existente simplesmente sobrescreve o valor associado a ela, sem criar uma segunda entrada."
+      },
+      {
+        "question": "Por que um HashSet<Ponto> aceitou dois objetos Ponto(1,1) como se fossem diferentes, mesmo com x e y iguais?",
+        "options": [
+          "HashSet sempre permite duplicatas de objetos customizados",
+          "A classe Ponto não sobrescreveu equals()/hashCode(), então o HashSet comparou por identidade de referência",
+          "Faltou usar TreeSet em vez de HashSet",
+          "É um bug do Java"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sem equals()/hashCode() customizados, uma classe herda o comportamento padrão de Object, que compara identidade (mesmo endereço de memória). Dois 'new Ponto(1,1)' são objetos distintos na heap, então o HashSet os trata como elementos diferentes, mesmo com o mesmo conteúdo lógico."
+      }
+    ]
+  }
+]

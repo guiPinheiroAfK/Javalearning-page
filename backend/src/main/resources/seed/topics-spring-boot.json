@@ -1,0 +1,305 @@
+[
+  {
+    "slug": "arquitetura-mvc",
+    "title": "Arquitetura MVC",
+    "category": "SPRING_BOOT",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "MVC (Model-View-Controller) separa responsabilidades em três papéis:\n\n**Model** — os dados e a lógica de negócio (Entities, Services).\n\n**View** — a apresentação. Em aplicações web tradicionais é HTML renderizado no servidor; em APIs REST como esta, o **JSON da resposta** desempenha esse papel — é o formato em que os dados chegam pro consumidor.\n\n**Controller** — recebe a requisição HTTP, delega a lógica pro Service, e formata a resposta. Ele não deveria conter regra de negócio — só orquestração: validar entrada básica, chamar o service certo, devolver o status HTTP apropriado.\n\nEste próprio backend segue MVC: `TopicController` recebe a request, `TopicService` decide o que fazer (inclusive lógica de cache), `Topic` (a entity, nosso Model) representa os dados, e a `TopicDetailResponse` (JSON serializado) é a View que o frontend consome.",
+    "codeExample": "// Controller: só orquestra — recebe request, delega, retorna resposta\n@RestController\n@RequestMapping(\"/api/v1/topics\")\npublic class TopicController {\n    private final TopicService topicService; // depende do Service, não sabe COMO os dados são buscados\n\n    public TopicController(TopicService topicService) {\n        this.topicService = topicService;\n    }\n\n    @GetMapping(\"/{slug}\")\n    public TopicDetailResponse buscarPorSlug(@PathVariable String slug) {\n        return topicService.buscarPorSlug(slug, null); // delega toda a lógica pro Service\n    }\n}\n// O TopicDetailResponse retornado aqui é serializado pro Spring como JSON — essa\n// serialização É a 'View' numa API REST, mesmo sem nenhum template HTML envolvido.",
+    "codeExampleBad": "// Controller \"gordo\": lógica de negócio dentro do Controller — quebra a separação MVC\n@GetMapping(\"/{slug}\")\npublic TopicDetailResponse buscarPorSlug(@PathVariable String slug) {\n    Topic topic = topicRepository.findBySlug(slug) // Controller acessando Repository direto!\n        .orElseThrow(() -> new RuntimeException(\"não encontrado\"));\n\n    // regra de negócio (parse de JSON, cálculo de progresso...) dentro do Controller\n    List<String> pontos = new ObjectMapper().readValue(topic.getKeyPoints(), List.class);\n    // ... mais 30 linhas de lógica que deveriam estar no Service\n\n    return new TopicDetailResponse(/* ... */);\n}",
+    "keyPoints": [
+      "Model: dados + lógica de negócio (Entity, Service). View: apresentação (JSON, numa API REST). Controller: orquestração",
+      "Controller não deveria ter regra de negócio — só delega pro Service e formata a resposta",
+      "Numa API REST, o JSON serializado da resposta desempenha o papel da View",
+      "Controller acessando Repository diretamente (pulando o Service) quebra a separação de camadas",
+      "Fluxo padrão: Controller recebe request → Service decide o quê fazer → Repository acessa dados"
+    ],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "dto"],
+    "quizzes": [
+      {
+        "question": "Numa API REST (sem HTML), o que desempenha o papel de 'View' no padrão MVC?",
+        "options": [
+          "Não existe View em APIs REST",
+          "O JSON serializado da resposta",
+          "O próprio Controller",
+          "O banco de dados"
+        ],
+        "correctIndex": 1,
+        "explanation": "MVC não exige HTML — 'View' é sobre apresentação/formato de saída. Numa API REST, o JSON retornado (a forma como os dados chegam ao consumidor da API) cumpre esse papel."
+      },
+      {
+        "question": "Por que um Controller acessando o Repository diretamente, pulando o Service, é considerado um problema de arquitetura?",
+        "options": [
+          "Não é um problema, é mais rápido",
+          "Quebra a separação de responsabilidades: o Controller passa a conter regra de negócio que deveria estar no Service",
+          "O Spring não permite tecnicamente essa chamada",
+          "Repository não pode ser injetado em Controller"
+        ],
+        "correctIndex": 1,
+        "explanation": "Tecnicamente funciona, mas mistura orquestração HTTP (responsabilidade do Controller) com lógica de negócio e acesso a dados (responsabilidade do Service). Isso dificulta testar a lógica isoladamente e reutilizá-la fora do contexto HTTP."
+      },
+      {
+        "question": "No fluxo MVC deste projeto, o que representa o 'Model'?",
+        "options": ["O TopicController", "As Entities (Topic, Quiz) e a lógica de negócio nos Services", "O arquivo application.yml", "O JSON retornado ao frontend"],
+        "correctIndex": 1,
+        "explanation": "Model é a camada de dados e regras de negócio — neste projeto, as Entities JPA (Topic, Quiz, UserProgress) e a lógica dos Services que as manipulam. O JSON de resposta é a View; o Controller é quem orquestra a interação entre as duas."
+      }
+    ]
+  },
+  {
+    "slug": "dto",
+    "title": "DTO",
+    "category": "SPRING_BOOT",
+    "orderIndex": 2,
+    "difficulty": "INTERMEDIARIO",
+    "content": "DTO (Data Transfer Object) é um objeto simples usado só pra **transportar dados** entre camadas — tipicamente entre o Service/Controller e o cliente da API. A ideia central é **desacoplar a Entity da API pública**.\n\nPor que não expor a Entity diretamente? Três razões práticas: (1) evita vazar campos sensíveis ou internos (ex: um hash de senha, um campo de auditoria); (2) permite formatar a resposta do jeito que a API precisa, sem estar amarrado à estrutura exata da tabela do banco; (3) evita problemas de serialização com relacionamentos JPA lazy (`LazyInitializationException` ao tentar serializar uma coleção não carregada).\n\nEste projeto usa **`record`** (Java 16+) pra todos os DTOs — são imutáveis por padrão (todos os campos são `final`), o compilador já gera `equals()`, `hashCode()` e `toString()`, e a sintaxe é muito mais enxuta que uma classe tradicional com getters/setters/construtor escritos à mão.",
+    "codeExample": "// Entity: representa a tabela no banco, com todos os campos internos\n@Entity\npublic class Topic {\n    private Long id;\n    private String slug;\n    private String content;        // não queremos expor isso na listagem\n    private LocalDateTime createdAt; // detalhe interno, sem valor pro frontend na listagem\n    // ...\n}\n\n// DTO: só o que a listagem do sidebar precisa — record, imutável, sem boilerplate\npublic record TopicSummaryResponse(\n    String slug,\n    String title,\n    Category category,\n    boolean completed\n) {}\n// equals(), hashCode() e toString() são gerados automaticamente pelo compilador",
+    "codeExampleBad": "// Expor a Entity JPA diretamente na API — evite isso\n@GetMapping(\"/{slug}\")\npublic Topic buscarPorSlug(@PathVariable String slug) {\n    return topicRepository.findBySlug(slug).orElseThrow();\n    // Problemas: 1) serializa TODOS os campos, mesmo os internos;\n    // 2) se 'quizzes' for @OneToMany LAZY e não tiver sido carregado,\n    //    a serialização fora da transação lança LazyInitializationException;\n    // 3) qualquer mudança na tabela (renomear coluna) quebra o contrato da API\n}",
+    "keyPoints": [
+      "DTO = objeto simples para transportar dados entre camadas, desacoplado da Entity",
+      "Evita expor campos internos/sensíveis e formata a resposta como a API precisa",
+      "Evita LazyInitializationException ao serializar relacionamentos JPA não carregados",
+      "Este projeto usa record (Java 16+) para todos os DTOs: imutável, sem boilerplate",
+      "Mudanças no schema do banco (Entity) não quebram automaticamente o contrato da API (DTO)"
+    ],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "arquitetura-mvc"],
+    "quizzes": [
+      {
+        "question": "Qual o principal risco de retornar uma Entity JPA diretamente de um Controller, em vez de um DTO?",
+        "options": [
+          "Entities não podem ser serializadas para JSON de forma alguma",
+          "Pode vazar campos internos e causar LazyInitializationException em relacionamentos não carregados",
+          "É proibido pelo Spring Boot",
+          "Fica mais rápido, mas menos seguro"
+        ],
+        "correctIndex": 1,
+        "explanation": "Expor a Entity diretamente serializa todos os campos (inclusive os que não deveriam ir pra API) e pode tentar serializar coleções @OneToMany LAZY que não foram carregadas dentro da transação, lançando LazyInitializationException."
+      },
+      {
+        "question": "Por que usar `record` para DTOs, em vez de uma classe tradicional com Lombok?",
+        "options": [
+          "record é mais rápido em runtime que qualquer classe",
+          "record gera automaticamente equals/hashCode/toString e é imutável por padrão, com sintaxe enxuta",
+          "record permite herança múltipla",
+          "Lombok não funciona em DTOs"
+        ],
+        "correctIndex": 1,
+        "explanation": "record (Java 16+) é feito exatamente pra esse caso de uso: um carregador de dados imutável. O compilador gera construtor, getters (sem prefixo 'get'), equals, hashCode e toString automaticamente — sem precisar de Lombok nem escrever à mão."
+      },
+      {
+        "question": "Por que TopicSummaryResponse (listagem) e TopicDetailResponse (página individual) são DTOs diferentes, em vez de reutilizar o mesmo record para os dois casos?",
+        "options": [
+          "Não é possível ter dois DTOs para a mesma Entity",
+          "Cada endpoint expõe só os campos que aquele contexto específico precisa, mantendo o payload enxuto",
+          "É uma limitação técnica do Jackson",
+          "Records não podem ser reutilizados de forma alguma"
+        ],
+        "correctIndex": 1,
+        "explanation": "A listagem do sidebar não precisa de content/codeExample/quizzes (payload pesado) — só um resumo. A página de detalhe precisa de tudo. Ter DTOs específicos por caso de uso evita over-fetching e deixa o contrato de cada endpoint mais claro."
+      }
+    ]
+  },
+  {
+    "slug": "entity-repository-service-controller",
+    "title": "Entity, Repository, Service, Controller",
+    "category": "SPRING_BOOT",
+    "orderIndex": 3,
+    "difficulty": "INTERMEDIARIO",
+    "content": "O fluxo padrão de uma requisição numa aplicação Spring Boot em camadas:\n\n```\nController → Service → Repository → Entity/Banco\n```\n\n**Entity** (`@Entity`) — classe mapeada pra uma tabela do banco via JPA/Hibernate. Representa o modelo de domínio persistido. Neste projeto, `Topic`, `Quiz` e `UserProgress` são as Entities.\n\n**Repository** — interface que estende `JpaRepository<Entity, ID>`. O Spring Data JPA **gera a implementação automaticamente**, inclusive queries a partir do nome do método (`findBySlug`, `findAllByOrderByCategoryAscOrderIndexAsc`) — você declara a assinatura, o Spring escreve o SQL.\n\n**Service** (`@Service`) — onde mora a lógica de negócio: orquestra um ou mais Repositories, aplica validações, calcula coisas (como o score de um quiz), decide o que cachear. Anotado com `@Transactional` quando precisa garantir atomicidade entre múltiplas operações de escrita.\n\n**Controller** (`@RestController`) — recebe a requisição HTTP, delega pro Service, devolve a resposta com o status HTTP correto.",
+    "codeExample": "// Repository: só a assinatura — Spring Data JPA gera a query pelo nome do método\npublic interface TopicRepository extends JpaRepository<Topic, Long> {\n    Optional<Topic> findBySlug(String slug); // vira \"SELECT * FROM topic WHERE slug = ?\"\n}\n\n// Service: lógica de negócio, orquestra o Repository\n@Service\npublic class TopicService {\n    private final TopicRepository topicRepository;\n\n    public TopicService(TopicRepository topicRepository) {\n        this.topicRepository = topicRepository;\n    }\n\n    public TopicDetailResponse buscarPorSlug(String slug) {\n        Topic topic = topicRepository.findBySlug(slug)\n            .orElseThrow(() -> new TopicNotFoundException(slug));\n        return converterParaDto(topic); // regra de negócio: transformar Entity em DTO\n    }\n}\n\n// Controller: só orquestração HTTP\n@RestController\n@RequestMapping(\"/api/v1/topics\")\npublic class TopicController {\n    private final TopicService topicService;\n\n    public TopicController(TopicService topicService) { this.topicService = topicService; }\n\n    @GetMapping(\"/{slug}\")\n    public TopicDetailResponse buscar(@PathVariable String slug) {\n        return topicService.buscarPorSlug(slug);\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Fluxo padrão: Controller → Service → Repository → Entity/Banco",
+      "Entity (@Entity): mapeia uma classe pra uma tabela via JPA/Hibernate",
+      "Repository: interface que estende JpaRepository — Spring gera a implementação e queries pelo nome do método",
+      "Service (@Service): lógica de negócio, orquestra Repositories, decide cache/validação/transação",
+      "Controller (@RestController): recebe HTTP, delega pro Service, formata a resposta"
+    ],
+    "relatedTopicSlugs": ["arquitetura-mvc", "injecao-de-dependencia"],
+    "quizzes": [
+      {
+        "question": "Ao declarar `Optional<Topic> findBySlug(String slug);` numa interface que estende JpaRepository, quem escreve a query SQL?",
+        "options": [
+          "Você precisa escrever manualmente com @Query",
+          "O Spring Data JPA gera a implementação e a query automaticamente, a partir do nome do método",
+          "Não é possível fazer isso sem SQL nativo",
+          "O Hibernate pede a query em runtime via prompt"
+        ],
+        "correctIndex": 1,
+        "explanation": "Spring Data JPA interpreta o nome do método ('findBy' + nome do campo 'Slug') e gera automaticamente a implementação com a query SQL equivalente — sem precisar escrever nenhuma linha de SQL, nem implementar o método."
+      },
+      {
+        "question": "Qual camada deveria conter a lógica de decidir se um resultado deve vir do cache ou do banco?",
+        "options": ["Controller", "Entity", "Service", "Repository"],
+        "correctIndex": 2,
+        "explanation": "Essa é uma decisão de negócio/performance, responsabilidade do Service (é lá que anotações como @Cacheable ficam, neste próprio projeto). Controller só orquestra HTTP; Repository só executa queries; Entity só representa dados."
+      },
+      {
+        "question": "Qual anotação marca uma classe Java como mapeada para uma tabela do banco via JPA?",
+        "options": ["@Table apenas", "@Entity", "@Repository", "@Component"],
+        "correctIndex": 1,
+        "explanation": "@Entity é a anotação que diz ao Hibernate/JPA que aquela classe representa uma tabela do banco. @Table é opcional, usada para customizar o nome da tabela quando difere do nome da classe."
+      }
+    ]
+  },
+  {
+    "slug": "injecao-de-dependencia",
+    "title": "Injeção de Dependência",
+    "category": "SPRING_BOOT",
+    "orderIndex": 4,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Injeção de Dependência (DI) é o Spring criando e gerenciando os objetos (**beans**) do seu sistema, e entregando (\"injetando\") essas dependências pra quem precisa delas — em vez de cada classe fazer `new Service()` manualmente e gerenciar seu próprio ciclo de vida.\n\nExistem três formas de injeção: **construtor**, **campo** (`@Autowired` direto no campo) e **setter**. A recomendação forte é **injeção por construtor**, por três motivos: (1) o campo pode ser `final` — imutável, garantindo que a dependência nunca é `null` depois de construído; (2) fica **testável** sem precisar de reflection ou de subir o contexto Spring — você só chama `new TopicService(mockRepository)` no teste; (3) **fail-fast** — se faltar uma dependência, o erro aparece na inicialização da aplicação, não numa `NullPointerException` obscura em runtime.\n\nDesde o Spring 4.3, quando a classe tem **um único construtor**, o `@Autowired` nele é opcional — o Spring já sabe que deve injetar por ali.",
+    "codeExample": "@Service\npublic class TopicService {\n    private final TopicRepository topicRepository; // final = imutável, nunca null após construído\n    private final ObjectMapper objectMapper;\n\n    // Injeção por construtor — @Autowired é opcional aqui (único construtor)\n    public TopicService(TopicRepository topicRepository, ObjectMapper objectMapper) {\n        this.topicRepository = topicRepository;\n        this.objectMapper = objectMapper;\n    }\n}\n\n// Em teste: dá pra instanciar SEM subir o Spring, só passando mocks direto\n@Test\nvoid deveBuscarTopicoPorSlug() {\n    TopicRepository mockRepo = Mockito.mock(TopicRepository.class);\n    TopicService service = new TopicService(mockRepo, new ObjectMapper()); // testável em milissegundos\n}",
+    "codeExampleBad": "@Service\npublic class TopicService {\n    @Autowired\n    private TopicRepository topicRepository; // injeção por campo — evite\n\n    // Problemas:\n    // 1) o campo não pode ser final — não há garantia de que nunca é null\n    // 2) impossível instanciar via 'new TopicService()' em teste sem reflection/Spring\n    // 3) dependências ficam escondidas — não aparecem na assinatura de nenhum construtor,\n    //    dificultando enxergar rapidamente do que essa classe depende\n}",
+    "keyPoints": [
+      "DI = Spring cria e gerencia os beans, injetando dependências em vez de 'new' manual",
+      "Prefira SEMPRE injeção por construtor — nunca por campo (@Autowired em field)",
+      "Construtor permite campo final (imutável), é testável sem Spring, e falha rápido na inicialização",
+      "Com um único construtor, @Autowired nele é opcional desde o Spring 4.3",
+      "Injeção por campo esconde as dependências da classe e dificulta testes unitários puros"
+    ],
+    "relatedTopicSlugs": ["bean-e-anotacoes-basicas", "abstracao"],
+    "quizzes": [
+      {
+        "question": "Por que a injeção por construtor é preferível à injeção por campo (@Autowired direto no field)?",
+        "options": [
+          "Injeção por construtor é mais rápida em runtime",
+          "Permite campo final (imutável), é testável sem subir o Spring, e falha rápido se faltar dependência",
+          "Injeção por campo foi removida em versões recentes do Spring",
+          "Não há diferença real entre as duas formas"
+        ],
+        "correctIndex": 1,
+        "explanation": "Construtor injection permite declarar o campo como final (garantia de imutabilidade), possibilita instanciar a classe manualmente em testes unitários (sem contexto Spring), e expõe claramente as dependências na assinatura do construtor — falhando na inicialização se algo faltar, em vez de numa NullPointerException tardia."
+      },
+      {
+        "question": "Quando o `@Autowired` é opcional num construtor?",
+        "options": [
+          "Nunca, sempre é obrigatório",
+          "Quando a classe tem um único construtor",
+          "Só em classes anotadas com @Component",
+          "Só se todos os parâmetros forem interfaces"
+        ],
+        "correctIndex": 1,
+        "explanation": "Desde o Spring Framework 4.3, se uma classe gerenciada pelo Spring tem apenas um construtor, o framework infere automaticamente que deve injetar as dependências por ali, tornando @Autowired explícito desnecessário nesse caso."
+      },
+      {
+        "question": "O que o container do Spring (ApplicationContext) gerencia através da Injeção de Dependência?",
+        "options": [
+          "Só as configurações do application.yml",
+          "O ciclo de vida dos beans e a resolução automática de suas dependências",
+          "Apenas conexões com o banco de dados",
+          "Só classes anotadas com @Entity"
+        ],
+        "correctIndex": 1,
+        "explanation": "O ApplicationContext é responsável por criar os beans, resolver e injetar as dependências entre eles (na ordem correta), e gerenciar seu ciclo de vida completo (criação, uso, destruição) — tudo isso sem o desenvolvedor precisar chamar 'new' manualmente."
+      }
+    ]
+  },
+  {
+    "slug": "bean-e-anotacoes-basicas",
+    "title": "Bean e Anotações Básicas",
+    "category": "SPRING_BOOT",
+    "orderIndex": 5,
+    "difficulty": "INTERMEDIARIO",
+    "content": "**Bean** é qualquer objeto cujo ciclo de vida (criação, configuração, destruição) é gerenciado pelo container do Spring (o `ApplicationContext`), em vez de você mesmo controlar com `new`.\n\nPrincipais anotações que criam beans automaticamente ao escanear o classpath:\n\n- `@Component` — anotação genérica: \"isso é um bean\". `@Service`, `@Repository` e `@Controller` são especializações dela, com o mesmo efeito técnico mas comunicando a **intenção** da classe (facilita leitura e permite comportamento extra, como `@Repository` traduzir exceções de banco).\n- `@RestController` — `@Controller` + `@ResponseBody`: cada método já retorna o corpo da resposta serializado (JSON), sem precisar anotar `@ResponseBody` em cada método individualmente.\n\nPara requisições HTTP: `@GetMapping`/`@PostMapping`/`@PutMapping`/`@DeleteMapping` mapeiam o verbo HTTP pro método handler. `@RequestBody` desserializa o JSON do corpo da requisição pro objeto Java (record/DTO); `@PathVariable` extrai valores da URL (`/topics/{slug}`); `@RequestParam` extrai query params (`?sessionId=xxx`).\n\nEste projeto usa também `@Cacheable`, que registra o **retorno de um método** num cache nomeado — chamadas seguintes com os mesmos parâmetros retornam o valor cacheado sem executar o método de novo (ver `TopicService.listarAgrupados()`).",
+    "codeExample": "@Service // bean gerenciado pelo Spring — especialização semântica de @Component\npublic class TopicService {\n\n    // @Cacheable: registra o retorno deste método no cache \"topics-list\".\n    // Chamadas seguintes retornam o valor cacheado sem re-executar a query no banco.\n    @Cacheable(\"topics-list\")\n    public Map<Category, List<TopicSummaryResponse>> listarAgrupados() {\n        return topicRepository.findAllByOrderByCategoryAscOrderIndexAsc().stream()\n            .map(this::paraResumo)\n            .collect(Collectors.groupingBy(TopicSummaryResponse::category));\n    }\n}\n\n@RestController // = @Controller + @ResponseBody em todos os métodos\n@RequestMapping(\"/api/v1/topics\")\npublic class TopicController {\n\n    @GetMapping(\"/{slug}\") // mapeia GET /api/v1/topics/{slug}\n    public TopicDetailResponse buscar(\n            @PathVariable String slug,          // extrai da URL\n            @RequestParam(required = false) String sessionId // extrai da query string\n    ) {\n        return topicService.buscarPorSlug(slug, sessionId);\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Bean = objeto cujo ciclo de vida é gerenciado pelo Spring (ApplicationContext), não por 'new' manual",
+      "@Component é genérico; @Service/@Repository/@Controller são especializações que comunicam intenção",
+      "@RestController = @Controller + @ResponseBody em todos os métodos automaticamente",
+      "@PathVariable extrai da URL; @RequestParam extrai da query string; @RequestBody desserializa o corpo JSON",
+      "@Cacheable cacheia o retorno de um método por parâmetro — chamadas repetidas evitam reexecutar a lógica"
+    ],
+    "relatedTopicSlugs": ["injecao-de-dependencia", "entity-repository-service-controller"],
+    "quizzes": [
+      {
+        "question": "Qual a diferença técnica entre @RestController e @Controller sozinho?",
+        "options": [
+          "Não há diferença nenhuma",
+          "@RestController = @Controller + @ResponseBody, então cada método já retorna JSON sem anotação extra",
+          "@Controller é para APIs REST, @RestController é para páginas HTML",
+          "@RestController não pode ter @GetMapping"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Controller sozinho, por padrão, espera que os métodos retornem o nome de uma View (HTML) a ser renderizada. @RestController adiciona implicitamente @ResponseBody a cada método, fazendo o retorno ser serializado direto no corpo da resposta HTTP (JSON, tipicamente)."
+      },
+      {
+        "question": "Numa rota `GET /api/v1/topics/{slug}?sessionId=abc`, qual anotação extrai o valor de `slug` e qual extrai `sessionId`?",
+        "options": [
+          "Ambos com @RequestParam",
+          "@PathVariable para slug, @RequestParam para sessionId",
+          "@RequestBody para os dois",
+          "@PathVariable para sessionId, @RequestParam para slug"
+        ],
+        "correctIndex": 1,
+        "explanation": "@PathVariable extrai valores que fazem parte do caminho da URL (como {slug} no template da rota). @RequestParam extrai parâmetros da query string (depois do '?'), como sessionId nesse exemplo."
+      },
+      {
+        "question": "O que acontece na segunda chamada de um método anotado com @Cacheable(\"topics-list\"), com os mesmos parâmetros da primeira?",
+        "options": [
+          "O método é executado normalmente, ignorando o cache",
+          "O Spring retorna o valor já armazenado no cache, sem executar o corpo do método de novo",
+          "Lança uma exceção de cache duplicado",
+          "O cache é limpo automaticamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Cacheable intercepta a chamada: se já existe um valor em cache para aquela combinação de cache name + parâmetros, o Spring devolve o valor cacheado diretamente, sem executar o corpo do método (e, portanto, sem bater no banco de novo)."
+      }
+    ]
+  },
+  {
+    "slug": "tratamento-de-erros-restcontrolleradvice",
+    "title": "Tratamento de Erros (@RestControllerAdvice)",
+    "category": "SPRING_BOOT",
+    "orderIndex": 6,
+    "difficulty": "AVANCADO",
+    "content": "`@RestControllerAdvice` é uma classe que intercepta exceções lançadas por **qualquer** `@RestController` da aplicação, centralizando o tratamento de erros num único lugar — em vez de espalhar `try/catch` repetido em cada endpoint.\n\nCada método anotado com `@ExceptionHandler(TipoDaExcecao.class)` trata um tipo específico de exceção, decidindo o status HTTP e o corpo da resposta de erro. Isso garante um **contrato consistente**: não importa qual endpoint falhou, o formato do erro é sempre o mesmo — o que facilita muito a vida de quem consome a API (o frontend sabe exatamente onde procurar `code`, `message`, `timestamp`).\n\nBoa prática de segurança: a exceção genérica (`Exception.class`, pegando qualquer coisa não tratada especificamente) **nunca** deve expor o stack trace ou detalhes internos no corpo da resposta — isso vazaria informação sobre a implementação interna do sistema pra qualquer cliente da API, inclusive um atacante mapeando a aplicação.",
+    "codeExample": "@RestControllerAdvice // intercepta exceções de TODOS os @RestController da aplicação\npublic class GlobalExceptionHandler {\n\n    @ExceptionHandler(TopicNotFoundException.class)\n    public ResponseEntity<ErrorResponse> handleTopicNotFound(TopicNotFoundException ex) {\n        ErrorResponse body = new ErrorResponse(\"TOPIC_NOT_FOUND\", ex.getMessage(), LocalDateTime.now());\n        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);\n    }\n\n    @ExceptionHandler(MethodArgumentNotValidException.class) // validação do @Valid falhou\n    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {\n        // ... monta um body com os campos inválidos\n        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(/* ... */);\n    }\n\n    @ExceptionHandler(Exception.class) // catch-all — última linha de defesa\n    public ResponseEntity<ErrorResponse> handleGenerica(Exception ex) {\n        // Sem stack trace no body — não expõe detalhes internos pro cliente\n        ErrorResponse body = new ErrorResponse(\"INTERNAL_ERROR\", \"Erro interno do servidor\", LocalDateTime.now());\n        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);\n    }\n}",
+    "codeExampleBad": "// Sem @RestControllerAdvice: try/catch repetido e inconsistente em cada endpoint\n@GetMapping(\"/{slug}\")\npublic ResponseEntity<?> buscar(@PathVariable String slug) {\n    try {\n        return ResponseEntity.ok(topicService.buscarPorSlug(slug, null));\n    } catch (Exception e) {\n        // Formato de erro diferente em cada endpoint, e ainda vazando a mensagem crua da exception:\n        return ResponseEntity.status(500).body(Map.of(\"erro\", e.getMessage(), \"stack\", e.getStackTrace()));\n        // Isso expõe detalhes internos da implementação pra qualquer cliente da API — risco de segurança.\n    }\n}",
+    "keyPoints": [
+      "@RestControllerAdvice centraliza tratamento de exceções de TODOS os controllers num único lugar",
+      "@ExceptionHandler(Tipo.class) trata um tipo específico de exceção, decidindo status e corpo da resposta",
+      "Garante um contrato de erro CONSISTENTE em toda a API — mesmo formato não importa o endpoint",
+      "Nunca exponha stack trace ou detalhes internos no corpo da resposta de erro (risco de segurança)",
+      "Um handler genérico para Exception.class é a última linha de defesa contra erros não previstos"
+    ],
+    "relatedTopicSlugs": ["exception-vs-runtimeexception", "codigos-status-http"],
+    "quizzes": [
+      {
+        "question": "Qual o principal benefício de usar @RestControllerAdvice em vez de try/catch em cada endpoint?",
+        "options": [
+          "É mais rápido em runtime",
+          "Centraliza o tratamento de erros, garantindo um formato de resposta consistente em toda a API",
+          "Permite ignorar exceções completamente",
+          "Elimina a necessidade de status codes HTTP"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sem centralização, cada desenvolvedor tende a formatar erros de forma ligeiramente diferente em cada endpoint, dificultando a vida de quem consome a API. @RestControllerAdvice garante que toda exceção do mesmo tipo produza a mesma estrutura de resposta, em qualquer controller."
+      },
+      {
+        "question": "Por que o handler para `Exception.class` genérica não deve incluir o stack trace no corpo da resposta?",
+        "options": [
+          "Porque stack traces não podem ser serializados para JSON",
+          "Porque isso expõe detalhes internos da implementação, um risco de segurança",
+          "Porque deixa a resposta muito grande",
+          "Não há problema nenhum em expor isso"
+        ],
+        "correctIndex": 1,
+        "explanation": "Expor stack traces em produção vaza informações sobre a estrutura interna do código (nomes de classe, pacotes, bibliotecas usadas), que podem ajudar um atacante a mapear vulnerabilidades. A prática correta é logar o stack trace no servidor e devolver uma mensagem genérica pro cliente."
+      },
+      {
+        "question": "Se dois métodos diferentes, em @ExceptionHandler distintos, tratam TopicNotFoundException e a exceção genérica Exception, qual handler é chamado quando uma TopicNotFoundException é lançada?",
+        "options": [
+          "Sempre o handler de Exception genérica",
+          "O handler mais específico (TopicNotFoundException), não o genérico",
+          "Ambos são chamados em sequência",
+          "Depende da ordem de declaração no arquivo"
+        ],
+        "correctIndex": 1,
+        "explanation": "O Spring escolhe o @ExceptionHandler mais específico para o tipo de exceção lançada. O handler de Exception.class só é acionado quando nenhum handler mais específico corresponde ao tipo — funcionando como uma rede de segurança (catch-all)."
+      }
+    ]
+  }
+]

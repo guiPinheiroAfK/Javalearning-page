@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: javabase-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: javabase
+      POSTGRES_USER: javabase
+      POSTGRES_PASSWORD: javabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - javabase-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U javabase -d javabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  javabase-postgres-data:

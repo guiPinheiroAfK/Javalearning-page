@@ -1,0 +1,136 @@
+[
+  {
+    "slug": "jvm-jre-jdk",
+    "title": "JVM, JRE e JDK",
+    "category": "ECOSSISTEMA",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "Três siglas que se sobrepõem e confundem quem está começando:\n\n**JVM** (Java Virtual Machine) — a máquina virtual que executa o **bytecode** Java. É ela que faz o gerenciamento de memória (Garbage Collector) e a compilação JIT (Just-In-Time, que otimiza o bytecode pra código de máquina nativo durante a execução). É a JVM que torna Java \"write once, run anywhere\" — o mesmo `.class` roda em qualquer sistema operacional que tenha uma JVM compatível.\n\n**JRE** (Java Runtime Environment) — JVM + bibliotecas padrão (`java.lang`, `java.util`...) necessárias pra **rodar** programas Java já compilados. Suficiente se você só precisa executar, não desenvolver.\n\n**JDK** (Java Development Kit) — JRE + ferramentas de desenvolvimento (`javac` pra compilar, `jar` pra empacotar, `jdb` pra debugar, `javadoc`...). É o que você instala pra **desenvolver** em Java — este próprio projeto foi compilado com JDK 21.\n\nResumindo o encaixe: JDK ⊃ JRE ⊃ JVM (cada um contém o anterior, adicionando mais ferramentas).",
+    "codeExample": "// javac compila o .java em bytecode (.class) — parte do JDK\n// $ javac JavabaseApplication.java\n\n// java executa o bytecode na JVM — parte do JRE (incluído no JDK também)\n// $ java JavabaseApplication\n\n// java -version mostra qual JVM/JDK está instalado\n// $ java -version\n// openjdk version \"21.0.8\" 2025-07-15",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "JVM: executa bytecode, gerencia memória (GC) e faz compilação JIT",
+      "JRE = JVM + bibliotecas padrão — suficiente pra RODAR programas Java",
+      "JDK = JRE + ferramentas de desenvolvimento (javac, jar, javadoc) — necessário pra DESENVOLVER",
+      "Relação de contenção: JDK contém o JRE, que contém a JVM",
+      "'Write once, run anywhere' é possível porque bytecode roda em qualquer JVM compatível, independente do SO"
+    ],
+    "relatedTopicSlugs": ["maven"],
+    "quizzes": [
+      {
+        "question": "O que você precisa ter instalado para COMPILAR código Java (usar javac)?",
+        "options": ["Só a JVM", "Só o JRE", "O JDK", "Nenhum dos três — javac é independente"],
+        "correctIndex": 2,
+        "explanation": "javac (o compilador) é uma ferramenta de desenvolvimento incluída apenas no JDK. O JRE tem só o necessário para RODAR programas já compilados, não para compilá-los."
+      },
+      {
+        "question": "Qual componente é responsável pelo Garbage Collector e pela compilação JIT?",
+        "options": ["JDK", "JRE", "JVM", "javac"],
+        "correctIndex": 2,
+        "explanation": "A JVM é quem executa o bytecode e gerencia a memória em runtime, incluindo o Garbage Collector (libera memória de objetos não mais referenciados) e o JIT compiler (otimiza trechos de bytecode quente para código de máquina nativo)."
+      },
+      {
+        "question": "O que torna Java uma linguagem \"write once, run anywhere\"?",
+        "options": [
+          "O código-fonte .java roda direto sem compilação",
+          "O bytecode compilado roda em qualquer JVM compatível, independente do sistema operacional",
+          "Todo código Java é convertido para JavaScript",
+          "O JDK inclui um sistema operacional próprio"
+        ],
+        "correctIndex": 1,
+        "explanation": "O compilador (javac) gera bytecode, um formato intermediário independente de plataforma. Qualquer sistema operacional com uma JVM compatível instalada consegue executar esse mesmo bytecode, sem precisar recompilar o código-fonte para cada SO."
+      }
+    ]
+  },
+  {
+    "slug": "maven",
+    "title": "Maven",
+    "category": "ECOSSISTEMA",
+    "orderIndex": 2,
+    "difficulty": "INICIANTE",
+    "content": "Maven é uma ferramenta de **build** e **gerenciamento de dependências** pra projetos Java. Tudo é declarado no `pom.xml` — quais bibliotecas o projeto usa (e suas versões), plugins, e como o projeto deve ser compilado/testado/empacotado.\n\nO **ciclo de vida padrão** do Maven é uma sequência de fases: `validate` → `compile` → `test` → `package` → `verify` → `install` → `deploy`. Rodar uma fase executa automaticamente todas as fases anteriores — `mvn package` primeiro compila e testa, só depois empacota.\n\nDependências declaradas no `pom.xml` são baixadas automaticamente do **Maven Central** (repositório público) e ficam em cache local (`~/.m2/repository`), evitando redownload a cada build.\n\nNo dia a dia, o comando mais usado é `mvn clean package -DskipTests` (limpa o `target/`, recompila, empacota, pulando os testes pra ser mais rápido em builds intermediários) — esse é o projeto **JavaBase** sendo compilado da mesma forma que qualquer projeto Maven real.",
+    "codeExample": "<!-- pom.xml: declara UMA dependência -->\n<dependency>\n    <groupId>org.springframework.boot</groupId>\n    <artifactId>spring-boot-starter-web</artifactId>\n</dependency>\n\n<!-- Comandos mais usados no dia a dia -->\n<!-- mvn compile        -> só compila o código -->\n<!-- mvn test           -> compila + roda os testes -->\n<!-- mvn package        -> compila + testa + gera o .jar em target/ -->\n<!-- mvn spring-boot:run -> roda a aplicação diretamente, sem empacotar -->",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Maven = build tool + gerenciador de dependências, tudo declarado no pom.xml",
+      "Ciclo de vida: validate → compile → test → package → verify → install → deploy",
+      "Rodar uma fase executa automaticamente todas as fases anteriores dela",
+      "Dependências vêm do Maven Central e ficam em cache local (~/.m2/repository)",
+      "mvn clean package -DskipTests é o comando mais usado no dia a dia por qualquer dev Java"
+    ],
+    "relatedTopicSlugs": ["jvm-jre-jdk", "git-commit-branch-merge-rebase"],
+    "quizzes": [
+      {
+        "question": "O que acontece quando você roda `mvn package`?",
+        "options": [
+          "Só gera o .jar, sem compilar nem testar",
+          "Executa automaticamente as fases anteriores (compile, test) antes de empacotar",
+          "Apaga todas as dependências baixadas",
+          "Só funciona se não houver testes no projeto"
+        ],
+        "correctIndex": 1,
+        "explanation": "O ciclo de vida do Maven é sequencial: rodar uma fase específica dispara todas as fases anteriores automaticamente. package vem depois de compile e test no ciclo padrão, então ambas rodam antes do empacotamento."
+      },
+      {
+        "question": "Onde ficam armazenadas as dependências baixadas pelo Maven, para evitar re-download a cada build?",
+        "options": ["Dentro da pasta target/ do projeto", "No cache local ~/.m2/repository", "No pom.xml diretamente", "Elas não ficam em cache, são baixadas toda vez"],
+        "correctIndex": 1,
+        "explanation": "O Maven mantém um repositório local (por padrão em ~/.m2/repository) onde armazena todas as dependências já baixadas do Maven Central. Builds subsequentes reutilizam esse cache, só baixando o que ainda não existe localmente ou mudou de versão."
+      },
+      {
+        "question": "Onde o Maven declara as dependências e a configuração de build de um projeto?",
+        "options": ["build.gradle", "package.json", "pom.xml", "Makefile"],
+        "correctIndex": 2,
+        "explanation": "pom.xml (Project Object Model) é o arquivo central de configuração do Maven — declara dependências, plugins, propriedades do projeto e como ele deve ser compilado, testado e empacotado."
+      }
+    ]
+  },
+  {
+    "slug": "git-commit-branch-merge-rebase",
+    "title": "Git (commit, branch, merge, rebase)",
+    "category": "ECOSSISTEMA",
+    "orderIndex": 3,
+    "difficulty": "INICIANTE",
+    "content": "Quatro conceitos fundamentais do Git no dia a dia de qualquer time:\n\n**commit** — um snapshot do código num ponto no tempo. Mensagens devem ser descritivas e **atômicas** (um commit, uma mudança lógica coesa) — facilita revisar e reverter mudanças específicas depois.\n\n**branch** — uma linha paralela de desenvolvimento, isolada da `main`. Convenções comuns: `feature/nome-da-feature`, `fix/bug-especifico`, `hotfix/urgente-producao`. Permite trabalhar em algo sem afetar o código estável até estar pronto.\n\n**merge** — junta o histórico de duas branches, criando um **merge commit** que tem dois pais. Preserva o histórico completo e fiel de como as coisas aconteceram, mas pode deixar o histórico visualmente \"bagunçado\" em projetos com muitas branches paralelas.\n\n**rebase** — reaplica seus commits **em cima** da branch alvo, um por um, como se você tivesse começado a trabalhar a partir do estado mais recente dela. Resultado: histórico **linear**, mais limpo de ler. Mas reescreve os hashes dos commits — **nunca faça rebase numa branch pública/compartilhada** que outras pessoas já baixaram, porque isso quebra o histórico delas.",
+    "codeExample": "# commit atômico e descritivo\ngit add src/main/java/com/javabase/service/TopicService.java\ngit commit -m \"feat: adiciona cache na listagem de tópicos\"\n\n# criar e trocar para uma branch nova\ngit checkout -b feature/quiz-scoring\n\n# merge: junta feature na main, preservando histórico com merge commit\ngit checkout main\ngit merge feature/quiz-scoring\n\n# rebase: reaplica os commits da feature em cima da main atualizada\ngit checkout feature/quiz-scoring\ngit rebase main",
+    "codeExampleBad": "# Rebase numa branch já compartilhada com o time — NÃO FAÇA ISSO\ngit checkout main\ngit rebase feature/experimental  # reescreve os hashes de commits que outros já têm\ngit push --force                 # força a sobrescrita no remoto\n\n# Qualquer colega que já tinha puxado a main antiga agora tem um histórico\n# divergente e incompatível — vai precisar resolver conflitos manualmente\n# ou perder trabalho ao tentar sincronizar.",
+    "keyPoints": [
+      "commit: snapshot atômico e descritivo do código",
+      "branch: linha paralela de desenvolvimento (feature/, fix/, hotfix/)",
+      "merge: junta branches preservando histórico completo, cria merge commit",
+      "rebase: histórico linear e limpo, mas reescreve hashes dos commits",
+      "NUNCA faça rebase (nem force push) numa branch pública/compartilhada com o time"
+    ],
+    "relatedTopicSlugs": ["maven"],
+    "quizzes": [
+      {
+        "question": "Qual a principal diferença entre merge e rebase?",
+        "options": [
+          "merge é mais rápido que rebase",
+          "merge preserva o histórico com um merge commit; rebase reaplica commits, gerando histórico linear mas reescrevendo hashes",
+          "rebase só funciona em repositórios privados",
+          "Não há diferença prática entre os dois"
+        ],
+        "correctIndex": 1,
+        "explanation": "merge cria um novo commit que une duas linhas de histórico (preservando tudo como aconteceu). rebase 'reescreve' seus commits como se tivessem sido feitos a partir do estado mais recente da branch alvo — resultado mais limpo, mas com hashes de commit diferentes dos originais."
+      },
+      {
+        "question": "Por que rebase (ou force push) numa branch pública/compartilhada é perigoso?",
+        "options": [
+          "Porque apaga o código do servidor",
+          "Porque reescreve os hashes dos commits, quebrando o histórico de quem já tinha baixado a versão anterior",
+          "Porque não é uma operação suportada pelo Git",
+          "Porque só funciona em branches locais"
+        ],
+        "correctIndex": 1,
+        "explanation": "Rebase cria commits NOVOS com hashes diferentes, mesmo que o conteúdo seja parecido. Se alguém já tinha os commits antigos localmente, o histórico diverge — sincronizar depois disso gera conflitos e risco real de perda de trabalho."
+      },
+      {
+        "question": "Qual convenção de nome de branch é mais adequada para uma correção urgente em produção?",
+        "options": ["feature/nome-da-feature", "hotfix/urgente-producao", "main", "docs/atualizar-readme"],
+        "correctIndex": 1,
+        "explanation": "hotfix/ é a convenção comum para correções urgentes que precisam ir pra produção rapidamente, geralmente feitas a partir da branch de produção e mescladas de volta assim que validadas — diferente de feature/, usada para desenvolvimento de novas funcionalidades sem urgência."
+      }
+    ]
+  }
+]

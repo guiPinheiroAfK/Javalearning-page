@@ -1,0 +1,252 @@
+[
+  {
+    "slug": "variaveis-tipos-primitivos",
+    "title": "Variáveis e Tipos Primitivos",
+    "category": "FUNDAMENTOS",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "Java tem 8 tipos primitivos: `byte`, `short`, `int`, `long`, `float`, `double`, `char` e `boolean`. Eles vivem diretamente na **stack** (ou dentro do objeto que os contém) e não são objetos — não têm métodos, não podem ser `null`.\n\nCada primitivo tem um **wrapper** correspondente (`Integer`, `Double`, `Character`, `Boolean`...) que É um objeto. Você precisa do wrapper quando quer usar o valor numa coleção genérica (`List<Integer>`, já que generics não aceitam primitivos) ou quando precisa representar \"ausência de valor\" com `null`.\n\n**Autoboxing** é a conversão automática de primitivo para wrapper (`int` → `Integer`), e **unboxing** é o inverso. O compilador faz isso por você, mas tem uma armadilha: unboxing de um wrapper `null` lança `NullPointerException` em runtime.\n\nEscolha do tipo importa: `int` é o padrão pra números inteiros no dia a dia; use `long` quando o valor pode passar de ~2 bilhões (ex: IDs, timestamps em milissegundos); use `double` pra maioria dos cálculos decimais e `float` só quando memória é crítica (é raro precisar).",
+    "codeExample": "public class TiposPrimitivos {\n    public static void main(String[] args) {\n        int idade = 25;\n        long populacaoMundial = 8_100_000_000L; // 'L' obrigatório: passa do limite do int\n        double preco = 19.90;\n        char inicial = 'G';\n        boolean ativo = true;\n\n        // Autoboxing: int primitivo vira Integer objeto automaticamente\n        Integer idadeObjeto = idade;\n\n        // Unboxing: Integer objeto vira int primitivo automaticamente\n        int idadeDeVolta = idadeObjeto;\n\n        System.out.println(idade + \" \" + populacaoMundial + \" \" + preco);\n    }\n}",
+    "codeExampleBad": "Integer contador = null;\n\n// NullPointerException aqui: o Java tenta fazer unboxing de null pra int,\n// e não existe \"int nulo\" — a JVM chama contador.intValue() e explode.\nint valor = contador;\n\nif (valor > 0) {\n    System.out.println(\"nunca chega aqui\");\n}",
+    "keyPoints": [
+      "8 tipos primitivos: byte, short, int, long, float, double, char, boolean",
+      "Primitivos não são objetos: sem métodos, sem null, vivem na stack",
+      "Cada primitivo tem um wrapper (Integer, Double...) — necessário para generics e null",
+      "Autoboxing/unboxing é automático, mas unboxing de wrapper null lança NullPointerException",
+      "long precisa do sufixo 'L' quando o literal passa do limite do int (~2.1 bilhões)"
+    ],
+    "relatedTopicSlugs": ["equals-vs-referencia", "generics"],
+    "quizzes": [
+      {
+        "question": "Por que `Integer contador = null; int valor = contador;` lança NullPointerException?",
+        "options": [
+          "Porque int não pode receber valores de Integer",
+          "Porque o unboxing tenta chamar contador.intValue() num objeto null",
+          "Porque faltou fazer cast explícito",
+          "Porque Integer não existe em Java"
+        ],
+        "correctIndex": 1,
+        "explanation": "Unboxing automático chama internamente o método intValue() do wrapper. Se o wrapper é null, essa chamada de método falha com NullPointerException — não existe um 'int nulo' pra representar o resultado."
+      },
+      {
+        "question": "Qual desses tipos NÃO é um tipo primitivo em Java?",
+        "options": ["int", "String", "boolean", "char"],
+        "correctIndex": 1,
+        "explanation": "String é uma classe (objeto), não um primitivo. Os 8 primitivos são: byte, short, int, long, float, double, char e boolean."
+      },
+      {
+        "question": "Por que `long populacaoMundial = 8_100_000_000L;` precisa do sufixo L?",
+        "options": [
+          "É só uma convenção de estilo, opcional",
+          "Porque o valor tem underscores",
+          "Porque sem o L o literal é tratado como int e estoura o limite (~2.1 bilhões)",
+          "Porque long sempre precisa de sufixo, mesmo com valores pequenos"
+        ],
+        "correctIndex": 2,
+        "explanation": "Literais numéricos inteiros são int por padrão. Um valor maior que o limite do int (2_147_483_647) causa erro de compilação sem o sufixo L, que diz ao compilador para tratar o literal como long desde o início."
+      }
+    ]
+  },
+  {
+    "slug": "if-else-switch",
+    "title": "if/else e switch",
+    "category": "FUNDAMENTOS",
+    "orderIndex": 2,
+    "difficulty": "INICIANTE",
+    "content": "`if/else` é o fluxo condicional padrão — bom para condições booleanas simples ou combinadas com `&&`/`||`. `switch` brilha quando você compara um único valor contra várias opções possíveis (um enum, um int, uma String).\n\nDesde o Java 14, as **switch expressions** com `->` deixaram o switch muito mais seguro e enxuto: cada `case` não precisa de `break` (elimina o bug clássico de fall-through acidental), e o switch pode **retornar um valor** diretamente, sendo atribuído a uma variável.\n\nO switch tradicional (com `:` e `break`) ainda existe e você vai encontrá-lo em código legado, mas para código novo prefira a versão com `->`.",
+    "codeExample": "String status = switch (codigo) {\n    case 1 -> \"Ativo\";\n    case 2 -> \"Inativo\";\n    case 3, 4 -> \"Pendente\"; // múltiplos valores no mesmo case\n    default -> \"Desconhecido\";\n};\n\n// switch com bloco, quando precisa de mais de uma linha\nString mensagem = switch (diaDaSemana) {\n    case 6, 7 -> \"Fim de semana!\";\n    default -> {\n        String base = \"Dia útil\";\n        yield base + \", foco no trabalho\"; // 'yield' retorna o valor do bloco\n    }\n};",
+    "codeExampleBad": "// switch tradicional: fall-through acidental por esquecer o break\nswitch (codigo) {\n    case 1:\n        System.out.println(\"Ativo\");\n        // faltou o break aqui!\n    case 2:\n        System.out.println(\"Inativo\"); // executa TAMBÉM quando codigo == 1\n        break;\n    default:\n        System.out.println(\"Desconhecido\");\n}",
+    "keyPoints": [
+      "if/else para condições booleanas; switch para comparar um valor contra múltiplas opções",
+      "switch expression (->) desde Java 14: sem fall-through, pode retornar valor direto",
+      "switch tradicional (: e break) ainda existe, mas é propenso a bug de fall-through",
+      "'yield' retorna um valor de dentro de um bloco { } numa switch expression",
+      "Um case pode agrupar múltiplos valores: case 3, 4 -> ..."
+    ],
+    "relatedTopicSlugs": ["for-while-foreach"],
+    "quizzes": [
+      {
+        "question": "Qual o principal risco do switch tradicional (com `:` e `break`) que a switch expression (`->`) elimina?",
+        "options": [
+          "Não suportar Strings como case",
+          "Fall-through acidental ao esquecer o break",
+          "Não poder ter um default",
+          "Ser mais lento em runtime"
+        ],
+        "correctIndex": 1,
+        "explanation": "No switch tradicional, esquecer o break faz a execução 'cair' pro próximo case (fall-through). A switch expression com -> não tem esse problema: cada case executa isoladamente, sem precisar de break."
+      },
+      {
+        "question": "O que a palavra-chave `yield` faz numa switch expression?",
+        "options": [
+          "Pausa a execução da thread",
+          "Retorna um valor de dentro de um bloco { } do case",
+          "Substitui o return em todos os métodos",
+          "Só funciona em loops, não em switch"
+        ],
+        "correctIndex": 1,
+        "explanation": "Quando um case precisa de mais de uma instrução, você usa um bloco { }, e dentro dele 'yield valor' define qual valor aquele case retorna para a switch expression."
+      },
+      {
+        "question": "O que `case 3, 4 -> \"Pendente\";` faz numa switch expression?",
+        "options": [
+          "É um erro de sintaxe",
+          "Trata os valores 3 e 4 com o mesmo resultado, sem repetir o case",
+          "Só o valor 3 é considerado, o 4 é ignorado",
+          "Cria dois cases separados automaticamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "A switch expression permite agrupar múltiplos valores no mesmo case separados por vírgula — se o valor comparado for 3 OU 4, o mesmo resultado é retornado, sem precisar duplicar o bloco de código."
+      }
+    ]
+  },
+  {
+    "slug": "for-while-foreach",
+    "title": "for, while e foreach",
+    "category": "FUNDAMENTOS",
+    "orderIndex": 3,
+    "difficulty": "INICIANTE",
+    "content": "Três formas de repetir código, cada uma com seu caso de uso natural:\n\n**`for`** — quando você sabe (ou controla) quantas iterações vai ter: `for (int i = 0; i < 10; i++)`.\n\n**`while`** — quando a repetição depende de uma condição que pode não ter um número fixo de voltas: `while (fila.temProximo())`.\n\n**`for-each`** (`for (Item item : lista)`) — a forma mais limpa de percorrer uma coleção ou array quando você só precisa do valor, sem o índice. Por baixo dos panos, o for-each usa o `Iterator` da coleção — é açúcar sintático para `Iterator<Item> it = lista.iterator(); while (it.hasNext()) { Item item = it.next(); ... }`.\n\nCuidado: você não pode modificar a estrutura de uma coleção (adicionar/remover elementos) durante um for-each — isso lança `ConcurrentModificationException`. Para remover durante a iteração, use o `Iterator` diretamente e chame `it.remove()`.",
+    "codeExample": "List<String> nomes = List.of(\"Ana\", \"Bruno\", \"Carla\");\n\n// for clássico: use quando precisar do índice\nfor (int i = 0; i < nomes.size(); i++) {\n    System.out.println(i + \": \" + nomes.get(i));\n}\n\n// while: quando a condição de parada não é um contador\nint tentativas = 0;\nwhile (tentativas < 3 && !conexaoEstabelecida()) {\n    tentativas++;\n}\n\n// for-each: mais limpo quando só precisa do valor\nfor (String nome : nomes) {\n    System.out.println(nome);\n}",
+    "codeExampleBad": "List<String> nomes = new ArrayList<>(List.of(\"Ana\", \"Bruno\", \"Carla\"));\n\n// ConcurrentModificationException: não dá pra remover de uma lista\n// enquanto o for-each está iterando sobre ela\nfor (String nome : nomes) {\n    if (nome.equals(\"Bruno\")) {\n        nomes.remove(nome); // explode aqui\n    }\n}",
+    "keyPoints": [
+      "for: número de iterações conhecido ou controlado por índice",
+      "while: repetição condicionada, sem contador fixo",
+      "for-each: mais limpo para percorrer coleções/arrays só pelo valor",
+      "for-each usa Iterator por baixo — é açúcar sintático",
+      "Modificar uma coleção durante for-each lança ConcurrentModificationException; use Iterator.remove() nesse caso"
+    ],
+    "relatedTopicSlugs": ["if-else-switch", "list-set-map"],
+    "quizzes": [
+      {
+        "question": "O que acontece ao remover um elemento de uma List dentro de um for-each sobre ela?",
+        "options": [
+          "Funciona normalmente",
+          "Lança ConcurrentModificationException",
+          "Remove silenciosamente sem erro",
+          "Só funciona se a lista for um ArrayList"
+        ],
+        "correctIndex": 1,
+        "explanation": "O for-each usa um Iterator internamente, que detecta modificação estrutural concorrente (mesmo numa única thread) e lança ConcurrentModificationException para evitar comportamento indefinido."
+      },
+      {
+        "question": "Qual mecanismo o for-each usa por baixo dos panos para percorrer uma coleção?",
+        "options": ["Reflection", "Iterator", "Streams", "Um índice numérico sempre"],
+        "correctIndex": 1,
+        "explanation": "for (Item i : lista) é açúcar sintático para usar o Iterator da coleção — hasNext() e next() — funcionando para qualquer classe que implemente Iterable, não só listas indexadas."
+      },
+      {
+        "question": "Qual estrutura de repetição é mais adequada quando você não sabe de antemão quantas iterações vão ocorrer, só a condição de parada?",
+        "options": ["for clássico", "while", "for-each", "Nenhuma delas suporta isso"],
+        "correctIndex": 1,
+        "explanation": "while é ideal quando o número de iterações depende de uma condição dinâmica (ex: tentativas até conseguir conectar), diferente do for clássico, que é mais natural quando o número de voltas é conhecido ou controlado por um contador."
+      }
+    ]
+  },
+  {
+    "slug": "metodos-parametros",
+    "title": "Métodos e Parâmetros",
+    "category": "FUNDAMENTOS",
+    "orderIndex": 4,
+    "difficulty": "INICIANTE",
+    "content": "Métodos são blocos de lógica reutilizável. Um detalhe que confunde muita gente: **Java sempre passa parâmetros por valor** — nunca por referência.\n\nPara **primitivos**, isso significa que o método recebe uma cópia do valor; alterar o parâmetro dentro do método não afeta a variável original do chamador.\n\nPara **objetos**, o que é copiado é o valor da **referência** (o \"endereço\" do objeto), não o objeto em si. Isso tem uma consequência sutil: o método PODE mutar o objeto apontado (ex: `lista.add(item)`), e essa mudança é visível pra quem chamou — mas se o método **reatribuir** a variável do parâmetro para apontar pra outro objeto, isso não afeta a referência original do chamador.\n\n**Overloading** é ter vários métodos com o mesmo nome, mas assinaturas (parâmetros) diferentes — o compilador escolhe qual chamar baseado nos tipos dos argumentos, em tempo de compilação.",
+    "codeExample": "public class Contador {\n    public static void incrementar(int valor) {\n        valor++; // só muda a cópia local\n    }\n\n    public static void adicionarItem(List<String> lista) {\n        lista.add(\"novo\"); // muta o objeto original — visível pra fora\n    }\n\n    public static void reatribuir(List<String> lista) {\n        lista = new ArrayList<>(); // só muda a referência local, não afeta o chamador\n    }\n\n    // Overloading: mesmo nome, parâmetros diferentes\n    public static int somar(int a, int b) { return a + b; }\n    public static double somar(double a, double b) { return a + b; }\n}",
+    "codeExampleBad": "public static void tentarDobrar(int numero) {\n    numero = numero * 2; // só afeta a cópia local\n}\n\npublic static void main(String[] args) {\n    int valor = 10;\n    tentarDobrar(valor);\n    System.out.println(valor); // ainda imprime 10, não 20 — surpresa comum pra quem vem de outras linguagens\n}",
+    "keyPoints": [
+      "Java passa TUDO por valor — nunca por referência de verdade",
+      "Primitivos: o método recebe uma cópia do valor",
+      "Objetos: o método recebe uma cópia da referência — pode mutar o objeto, não pode reatribuir a variável do chamador",
+      "Overloading = mesmo nome, parâmetros diferentes, resolvido em compile-time",
+      "Reatribuir um parâmetro de objeto dentro do método não afeta a variável original de quem chamou"
+    ],
+    "relatedTopicSlugs": ["classes-objetos", "polimorfismo"],
+    "quizzes": [
+      {
+        "question": "Um método recebe uma List<String> como parâmetro e chama lista.add(\"x\"). Essa mudança é visível para quem chamou o método?",
+        "options": [
+          "Não, porque Java passa por valor",
+          "Sim, porque a referência copiada ainda aponta para o mesmo objeto na heap",
+          "Só se a lista for final",
+          "Só em métodos static"
+        ],
+        "correctIndex": 1,
+        "explanation": "Java passa a referência por valor — é uma cópia do 'endereço', mas ambas as cópias apontam pro mesmo objeto na heap. Mutar o objeto (add, remove) é visível de fora; reatribuir a variável local não é."
+      },
+      {
+        "question": "Por que `tentarDobrar(valor)` não altera o `valor` original no exemplo do código \"errado\"?",
+        "options": [
+          "Porque int é um tipo especial que nunca muda",
+          "Porque o método recebeu uma cópia do valor primitivo, não a variável original",
+          "Porque faltou declarar o parâmetro como final",
+          "Porque faltou usar um wrapper Integer"
+        ],
+        "correctIndex": 1,
+        "explanation": "Para primitivos, Java copia o valor na chamada do método. Qualquer alteração dentro do método afeta só essa cópia local — a variável 'valor' no main() permanece inalterada."
+      },
+      {
+        "question": "O que determina qual versão de um método sobrecarregado (overload) é chamada?",
+        "options": [
+          "O valor de retorno esperado",
+          "Os tipos dos argumentos passados na chamada, resolvidos em tempo de compilação",
+          "A ordem de declaração no arquivo",
+          "Um sorteio em runtime"
+        ],
+        "correctIndex": 1,
+        "explanation": "Overloading é resolvido estaticamente (compile-time) com base no número e tipo dos argumentos passados. Isso é diferente de overriding, que é resolvido em runtime com base no tipo real do objeto."
+      }
+    ]
+  },
+  {
+    "slug": "classes-objetos",
+    "title": "Classes e Objetos",
+    "category": "FUNDAMENTOS",
+    "orderIndex": 5,
+    "difficulty": "INICIANTE",
+    "content": "**Classe** é o blueprint (a planta) — define quais campos (estado) e métodos (comportamento) algo vai ter. **Objeto** é uma instância concreta daquela classe, criada com `new`, vivendo na heap.\n\nUma analogia clássica: `Carro` é a classe (define que todo carro tem `cor`, `modelo`, e sabe `acelerar()`); `meuCarro = new Carro(\"Preto\", \"Civic\")` é um objeto — uma instância específica com valores concretos.\n\nRegra de arquivo: um `.java` pode ter várias classes, mas **só uma pode ser `public`**, e o nome dessa classe pública precisa bater exatamente com o nome do arquivo (`Carro.java` só pode ter uma `public class Carro`).\n\nO **construtor** é um método especial (mesmo nome da classe, sem tipo de retorno) chamado na criação do objeto — é onde você inicializa o estado inicial. Se você não declarar nenhum construtor, o Java gera um construtor padrão sem argumentos automaticamente.",
+    "codeExample": "public class Carro {\n    private String cor;\n    private String modelo;\n\n    // Construtor: inicializa o estado do objeto\n    public Carro(String cor, String modelo) {\n        this.cor = cor;\n        this.modelo = modelo;\n    }\n\n    public void acelerar() {\n        System.out.println(modelo + \" acelerando!\");\n    }\n\n    public static void main(String[] args) {\n        Carro meuCarro = new Carro(\"Preto\", \"Civic\"); // objeto = instância da classe\n        Carro carroDaVizinha = new Carro(\"Branco\", \"Onix\"); // outro objeto, estado independente\n\n        meuCarro.acelerar();\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Classe = blueprint (estado + comportamento). Objeto = instância concreta na heap",
+      "Um arquivo .java só pode ter uma classe public, com o mesmo nome do arquivo",
+      "Construtor inicializa o estado do objeto no momento da criação (new)",
+      "Sem construtor declarado, o Java gera um construtor padrão vazio automaticamente",
+      "Cada objeto tem seu próprio estado independente, mesmo compartilhando a mesma classe"
+    ],
+    "relatedTopicSlugs": ["encapsulamento", "metodos-parametros"],
+    "quizzes": [
+      {
+        "question": "Se um arquivo `Carro.java` declara `public class Carro` e `class Motor`, isso compila?",
+        "options": [
+          "Não, um arquivo só pode ter uma classe",
+          "Sim, desde que só a classe public tenha o mesmo nome do arquivo",
+          "Não, as duas classes precisam ser public",
+          "Sim, mas só se estiverem em pacotes diferentes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Um arquivo .java pode ter múltiplas classes, mas no máximo uma pode ser public, e essa classe public precisa ter exatamente o mesmo nome do arquivo. Classes adicionais sem modificador de acesso (package-private) são permitidas."
+      },
+      {
+        "question": "O que acontece se você declarar uma classe sem nenhum construtor explícito?",
+        "options": [
+          "A classe não pode ser instanciada",
+          "O Java gera automaticamente um construtor padrão sem argumentos",
+          "Erro de compilação obrigando a declarar um",
+          "Todos os campos ficam null por padrão sem exceção — não tem nada a ver com construtor"
+        ],
+        "correctIndex": 1,
+        "explanation": "Se nenhum construtor é declarado, o compilador insere um construtor padrão (sem parâmetros, corpo vazio) automaticamente. Assim que você declara qualquer construtor, esse padrão implícito deixa de existir."
+      },
+      {
+        "question": "No exemplo, `meuCarro` e `carroDaVizinha` são dois objetos da mesma classe `Carro`. Eles compartilham o mesmo estado (cor, modelo)?",
+        "options": [
+          "Sim, todo objeto da mesma classe compartilha o mesmo estado",
+          "Não, cada objeto tem seu próprio estado independente, mesmo sendo da mesma classe",
+          "Só se os dois forem criados na mesma linha de código",
+          "Depende se os campos são static"
+        ],
+        "correctIndex": 1,
+        "explanation": "Campos de instância (não-static) pertencem a cada objeto individualmente. Dois objetos da mesma classe têm cópias independentes do estado — mudar a cor de um Carro não afeta o outro."
+      }
+    ]
+  }
+]

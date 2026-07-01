@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "sql-basico",
+    "title": "SQL Básico (SELECT, INSERT, UPDATE, DELETE)",
+    "category": "SQL",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "As quatro operações fundamentais de SQL, a linguagem que o Hibernate traduz por trás de cada chamada de `Repository`:\n\n**`SELECT`** — busca dados. `WHERE` filtra linhas, `ORDER BY` ordena o resultado.\n\n**`INSERT`** — adiciona uma nova linha.\n\n**`UPDATE`** — modifica linhas existentes. **Sempre** use `WHERE` — sem ele, a atualização afeta a **tabela inteira**.\n\n**`DELETE`** — remove linhas. Mesma regra: sem `WHERE`, apaga **tudo**.\n\nSobre **joins**, os dois mais usados: `INNER JOIN` retorna só as linhas onde existe correspondência nas duas tabelas; `LEFT JOIN` retorna todas as linhas da tabela da esquerda, mesmo sem correspondência na direita (preenchendo com `NULL` quando não há match) — é o que a query nativa agregada deste projeto usa pra contar tópicos completados vs. total por categoria, mesmo quando o usuário ainda não completou nenhum.",
+    "codeExample": "-- SELECT com filtro e ordenação\nSELECT nome, email FROM users WHERE active = true ORDER BY nome;\n\n-- INSERT: adiciona uma linha nova\nINSERT INTO users (nome, email) VALUES ('Gui', 'gui@email.com');\n\n-- UPDATE: SEMPRE com WHERE, senão afeta a tabela inteira\nUPDATE users SET email = 'novo@email.com' WHERE id = 1;\n\n-- DELETE: mesma regra do WHERE\nDELETE FROM users WHERE id = 1;\n\n-- LEFT JOIN: todas as linhas de topic, mesmo sem progresso ainda registrado\nSELECT t.category, COUNT(up.id)\nFROM topic t\nLEFT JOIN user_progress up ON up.topic_id = t.id AND up.session_id = 'abc-123'\nGROUP BY t.category;",
+    "codeExampleBad": "-- Esqueceu o WHERE: isso atualiza TODA a tabela, não só um usuário\nUPDATE users SET active = false;\n-- Toda linha da tabela agora tem active = false — provavelmente não era a intenção.\n\n-- O mesmo vale para DELETE:\nDELETE FROM users;\n-- Apaga TODAS as linhas da tabela. Sempre confira o WHERE antes de rodar UPDATE/DELETE em produção.",
+    "keyPoints": [
+      "SELECT busca (com WHERE filtrando, ORDER BY ordenando); INSERT adiciona; UPDATE modifica; DELETE remove",
+      "UPDATE e DELETE SEM WHERE afetam a TABELA INTEIRA — sempre confira antes de rodar",
+      "INNER JOIN: só linhas com correspondência nas duas tabelas",
+      "LEFT JOIN: todas as linhas da tabela da esquerda, com NULL onde não há correspondência na direita",
+      "O Hibernate traduz cada chamada de Repository (findBySlug, save...) em SQL equivalente a esses comandos"
+    ],
+    "relatedTopicSlugs": ["entity-repository-service-controller", "crud"],
+    "quizzes": [
+      {
+        "question": "O que acontece ao rodar `UPDATE users SET active = false;` sem cláusula WHERE?",
+        "options": [
+          "Nada acontece, o comando é rejeitado",
+          "Atualiza TODAS as linhas da tabela users",
+          "Atualiza só a primeira linha",
+          "Pede confirmação antes de executar"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sem WHERE, o UPDATE (assim como o DELETE) é aplicado a todas as linhas da tabela, sem exceção. É um dos erros mais perigosos e comuns em SQL — sempre revisar o WHERE antes de rodar esses comandos, especialmente em produção."
+      },
+      {
+        "question": "Qual a diferença entre INNER JOIN e LEFT JOIN?",
+        "options": [
+          "Não há diferença, são sinônimos",
+          "INNER JOIN só traz linhas com correspondência nas duas tabelas; LEFT JOIN traz todas da esquerda, mesmo sem match na direita",
+          "LEFT JOIN é sempre mais rápido",
+          "INNER JOIN só funciona com uma tabela"
+        ],
+        "correctIndex": 1,
+        "explanation": "INNER JOIN filtra apenas onde existe correspondência entre as tabelas nas duas pontas. LEFT JOIN preserva todas as linhas da tabela à esquerda do JOIN, preenchendo com NULL as colunas da tabela direita quando não há correspondência — útil, por exemplo, para listar todos os tópicos mesmo os que o usuário ainda não completou."
+      },
+      {
+        "question": "Qual comando SQL é usado para adicionar uma nova linha numa tabela?",
+        "options": ["SELECT", "INSERT", "UPDATE", "ALTER"],
+        "correctIndex": 1,
+        "explanation": "INSERT INTO tabela (colunas) VALUES (valores) adiciona uma nova linha à tabela. SELECT busca dados existentes, UPDATE modifica linhas existentes, e ALTER modifica a estrutura da tabela (não os dados)."
+      }
+    ]
+  }
+]

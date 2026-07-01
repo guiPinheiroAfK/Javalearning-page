@@ -1,0 +1,156 @@
+[
+  {
+    "slug": "generics",
+    "title": "Generics (<T>)",
+    "category": "JAVA_MODERNO",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Generics permite escrever código **type-safe** e reutilizável sem precisar de casting manual. `List<String>` garante em **compile-time** que só Strings entram naquela lista — tentar `lista.add(42)` nem compila.\n\nAntes de generics (pré-Java 5), coleções guardavam `Object`, e você precisava fazer cast manual toda vez (`String s = (String) lista.get(0)`), com risco de `ClassCastException` em runtime se alguém colocasse o tipo errado. Generics move esse erro pra compile-time, muito mais barato de corrigir.\n\n**Type erasure**: em runtime, o `<T>` \"some\" — o bytecode trata tudo como `Object` internamente (por compatibilidade com código pré-generics). É por isso que você não consegue fazer `new T()` ou `instanceof List<String>` diretamente — a informação do tipo parametrizado não existe mais em runtime.\n\n**Bounded types** restringem o que `T` pode ser: `<T extends Comparable<T>>` diz \"T pode ser qualquer tipo, desde que implemente Comparable\" — permitindo chamar `.compareTo()` dentro do método genérico com segurança de tipo.",
+    "codeExample": "// Classe genérica: Caixa<T> funciona pra qualquer tipo, com segurança de tipo em compile-time\npublic class Caixa<T> {\n    private T conteudo;\n\n    public void guardar(T item) { this.conteudo = item; }\n    public T pegar() { return conteudo; }\n}\n\nCaixa<String> caixaDeTexto = new Caixa<>();\ncaixaDeTexto.guardar(\"documento\");\nString valor = caixaDeTexto.pegar(); // sem cast manual — o compilador já sabe que é String\n\n// Bounded type: T precisa implementar Comparable<T> para o método funcionar\npublic static <T extends Comparable<T>> T maior(T a, T b) {\n    return a.compareTo(b) > 0 ? a : b;\n}",
+    "codeExampleBad": "List lista = new ArrayList(); // raw type, sem generics — evite isso\nlista.add(\"texto\");\nlista.add(42); // compila! sem generics, não há checagem de tipo\n\nString s = (String) lista.get(1); // ClassCastException em runtime — 42 não é String\n// Com List<String>, o erro 'lista.add(42)' nem compilaria — o problema seria pego cedo.",
+    "keyPoints": [
+      "Generics = tipagem parametrizada, checada em compile-time, sem cast manual",
+      "Evita ClassCastException em runtime ao mover a checagem de tipo pra compile-time",
+      "Type erasure: em runtime, o <T> vira Object — informação do tipo parametrizado não existe mais",
+      "Bounded types (<T extends X>) restringem o que T pode ser, permitindo chamar métodos de X com segurança",
+      "Evite usar raw types (List sem <>) — perde toda a segurança de tipo que generics oferece"
+    ],
+    "relatedTopicSlugs": ["list-set-map", "streams-e-lambda"],
+    "quizzes": [
+      {
+        "question": "O que é 'type erasure' em Java Generics?",
+        "options": [
+          "Generics são removidos do código-fonte antes de compilar",
+          "Em runtime, a informação do tipo parametrizado (<T>) não existe mais — o bytecode trata como Object",
+          "É um erro de compilação comum ao usar generics",
+          "Generics apagam os dados da lista automaticamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Type erasure significa que o compilador usa a informação de <T> só para checagem em compile-time; no bytecode gerado, os generics 'somem' e tudo é tratado como Object, por compatibilidade com código Java anterior a generics (pré Java 5)."
+      },
+      {
+        "question": "Por que `List<String> lista` é mais seguro que `List lista` (raw type)?",
+        "options": [
+          "List<String> é mais rápida em runtime",
+          "List<String> impede em compile-time que um tipo errado seja adicionado, evitando ClassCastException depois",
+          "Não há diferença real, é só estilo",
+          "Raw type não existe em Java"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sem generics (raw type), o compilador não consegue verificar o tipo dos elementos — um lista.add(42) numa lista 'de Strings' compila, e o erro só aparece como ClassCastException quando alguém tenta usar o valor como String, em runtime."
+      },
+      {
+        "question": "O que `<T extends Comparable<T>>` significa na assinatura de um método genérico?",
+        "options": [
+          "T precisa ser uma subclasse de Comparable",
+          "T pode ser qualquer tipo que implemente a interface Comparable<T>, permitindo chamar compareTo() com segurança",
+          "O método só aceita o tipo Comparable literalmente",
+          "É uma sintaxe inválida em Java"
+        ],
+        "correctIndex": 1,
+        "explanation": "'extends' em bounded types é usado tanto para herança de classe quanto implementação de interface. Aqui, diz que T precisa implementar Comparable<T>, o que garante que o compilador permita chamar a.compareTo(b) dentro do método, com segurança de tipo."
+      }
+    ]
+  },
+  {
+    "slug": "streams-e-lambda",
+    "title": "Streams e Lambda",
+    "category": "JAVA_MODERNO",
+    "orderIndex": 2,
+    "difficulty": "INTERMEDIARIO",
+    "content": "**Lambda** é uma função anônima inline: `(x) -> x * 2` — uma forma compacta de passar comportamento como argumento, sem precisar declarar uma classe/método separado.\n\n**Stream** é um pipeline funcional sobre uma coleção: você encadeia operações como `filter` (mantém só o que satisfaz uma condição), `map` (transforma cada elemento) e `collect` (junta o resultado numa coleção nova). Um Stream **não muta** a coleção original — sempre produz um resultado novo.\n\nDetalhe importante: Streams são **lazy** — as operações intermediárias (`filter`, `map`, `sorted`) só executam de verdade quando uma operação **terminal** (`collect`, `forEach`, `reduce`, `count`) é chamada. Isso permite o Java otimizar o pipeline inteiro numa única passagem pelos dados, em vez de criar uma lista intermediária pra cada etapa.\n\nMethod reference (`User::getName`) é um atalho ainda mais compacto pra lambdas que só chamam um método existente — `u -> u.getName()` e `User::getName` são equivalentes.",
+    "codeExample": "List<String> nomesAtivos = usuarios.stream()\n    .filter(u -> u.isAtivo())       // mantém só usuários ativos\n    .map(User::getName)             // transforma User em String (method reference)\n    .sorted()                       // ordena alfabeticamente\n    .collect(Collectors.toList());  // operação terminal — só aqui o pipeline realmente executa\n\n// reduce: combina todos os elementos num único resultado\nint total = pedidos.stream()\n    .mapToInt(Pedido::getValor)\n    .sum();",
+    "codeExampleBad": "// Streams NÃO mutam a coleção original — esse código não faz o que parece fazer\nList<String> nomes = List.of(\"ana\", \"bruno\", \"carla\");\n\nnomes.stream().map(String::toUpperCase); // resultado descartado! nada acontece\n\nSystem.out.println(nomes); // ainda imprime [ana, bruno, carla], sem maiúsculas\n// Faltou usar o retorno: nomes = nomes.stream().map(String::toUpperCase).collect(Collectors.toList());",
+    "keyPoints": [
+      "Lambda = função anônima inline: (parametros) -> expressão",
+      "Stream = pipeline funcional: filter (filtra), map (transforma), collect (junta o resultado)",
+      "Stream nunca muta a coleção original — sempre produz um novo resultado",
+      "Lazy evaluation: operações intermediárias só executam quando uma operação terminal é chamada",
+      "Method reference (Classe::metodo) é um atalho mais legível para lambdas que só chamam um método existente"
+    ],
+    "relatedTopicSlugs": ["optional", "generics"],
+    "quizzes": [
+      {
+        "question": "O que está errado em `nomes.stream().map(String::toUpperCase);` sem usar o retorno?",
+        "options": [
+          "map() não existe em Stream<String>",
+          "Streams não mutam a coleção original — o resultado do pipeline foi descartado, nada aconteceu com 'nomes'",
+          "Method reference não funciona com toUpperCase",
+          "Faltou chamar .filter() antes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Stream.map() retorna um NOVO Stream com os elementos transformados — não altera a coleção de origem. Como o retorno não foi atribuído a nada nem passou por uma operação terminal, o pipeline sequer chega a processar os elementos de forma útil, e 'nomes' continua com os valores originais."
+      },
+      {
+        "question": "Por que operações como filter() e map() num Stream são chamadas de 'lazy'?",
+        "options": [
+          "Porque são mais lentas que loops tradicionais",
+          "Porque só executam de fato quando uma operação terminal (collect, forEach, count...) é chamada",
+          "Porque rodam em threads separadas automaticamente",
+          "Porque precisam ser chamadas várias vezes até funcionar"
+        ],
+        "correctIndex": 1,
+        "explanation": "Operações intermediárias (filter, map, sorted) apenas descrevem o pipeline — não processam nada sozinhas. Só quando uma operação terminal é invocada é que o Stream de fato percorre os dados, aplicando todas as transformações numa única passagem."
+      },
+      {
+        "question": "Qual método de Stream é usado para converter cada elemento de um tipo para outro (ex: User para String com o nome)?",
+        "options": ["filter", "map", "reduce", "sorted"],
+        "correctIndex": 1,
+        "explanation": "map() aplica uma função de transformação a cada elemento do Stream, produzindo um novo Stream com os elementos transformados — é a operação certa para 'converter User em String', diferente de filter (que só seleciona, não transforma)."
+      }
+    ]
+  },
+  {
+    "slug": "optional",
+    "title": "Optional",
+    "category": "JAVA_MODERNO",
+    "orderIndex": 3,
+    "difficulty": "INTERMEDIARIO",
+    "content": "`Optional<T>` é um container que pode ou não conter um valor — uma forma explícita de dizer \"esse método pode não ter um resultado\", em vez de retornar `null` silenciosamente e deixar quem chama torcer pra lembrar de checar.\n\nUse `Optional` como **tipo de retorno** de método, principalmente em buscas que podem não encontrar nada (`repository.findById(id)` retorna `Optional<User>`). **Nunca** use `Optional` como parâmetro de método ou campo de classe/entidade — nesses casos, `null` (ou simplesmente não ter o campo) já resolve, e `Optional` só adiciona complexidade e overhead de objeto sem ganho real.\n\nOs métodos mais usados: `isPresent()`/`isEmpty()` para checar; `ifPresent(consumer)` para executar algo só se houver valor; `map(fn)` para transformar o valor se presente; `orElse(padrao)` ou `orElseThrow(...)` para extrair o valor com um fallback explícito.",
+    "codeExample": "public Optional<User> buscarPorId(Long id) {\n    return userRepository.findById(id); // Spring Data JPA já retorna Optional\n}\n\n// Uso idiomático: encadeando map + orElse, sem if/else explícito\nString nome = buscarPorId(1L)\n    .map(User::getName)\n    .orElse(\"Anônimo\");\n\n// ifPresent: executa uma ação só se o valor existir\nbuscarPorId(1L).ifPresent(u -> System.out.println(\"Encontrado: \" + u.getName()));\n\n// orElseThrow: lança exceção customizada quando não há valor\nUser user = buscarPorId(1L)\n    .orElseThrow(() -> new UserNotFoundException(1L));",
+    "codeExampleBad": "public class User {\n    private String nome;\n    private Optional<String> apelido; // ERRADO: Optional como campo de classe\n\n    // Optional não é Serializable de forma confiável, adiciona overhead de objeto\n    // por campo, e a alternativa (campo nullable comum) já resolve o mesmo problema\n    // de forma mais simples e convencional em Entities JPA.\n}\n\npublic void processar(Optional<String> parametro) { // ERRADO: Optional como parâmetro\n    // Força quem chama a empacotar um valor simples num Optional só pra passar aqui —\n    // mais verboso sem ganho real. Prefira sobrecarga de método ou um parâmetro nullable.\n}",
+    "keyPoints": [
+      "Optional<T> representa explicitamente 'pode não ter valor' — evita NullPointerException silenciosa",
+      "Use como tipo de RETORNO de método, especialmente em buscas (findById)",
+      "NUNCA use Optional como parâmetro de método ou campo de classe/entidade",
+      "map(), orElse(), orElseThrow() permitem encadear lógica sem if/else explícito para null",
+      "Spring Data JPA já retorna Optional<T> nativamente em métodos como findById()"
+    ],
+    "relatedTopicSlugs": ["streams-e-lambda", "exception-vs-runtimeexception"],
+    "quizzes": [
+      {
+        "question": "Qual o uso CORRETO de Optional, segundo as convenções da comunidade Java?",
+        "options": [
+          "Como campo de uma classe Entity",
+          "Como parâmetro de um método",
+          "Como tipo de retorno de um método que pode não encontrar um resultado",
+          "Optional deve ser evitado completamente"
+        ],
+        "correctIndex": 2,
+        "explanation": "A convenção estabelecida (inclusive documentada pela própria equipe do Java) é usar Optional apenas como tipo de retorno, sinalizando de forma explícita que o método pode não ter um valor a devolver. Usá-lo como campo ou parâmetro é considerado anti-padrão."
+      },
+      {
+        "question": "O que `buscarPorId(1L).map(User::getName).orElse(\"Anônimo\")` faz quando o Optional está vazio?",
+        "options": [
+          "Lança NullPointerException",
+          "Retorna null",
+          "Retorna a String \"Anônimo\", sem executar map()",
+          "Trava o programa"
+        ],
+        "correctIndex": 2,
+        "explanation": "Quando o Optional está vazio, map() simplesmente não executa a transformação (não há valor pra transformar) e o Optional continua vazio; orElse(\"Anônimo\") então fornece o valor padrão, sem lançar exceção alguma."
+      },
+      {
+        "question": "O que `orElseThrow(() -> new UserNotFoundException(id))` faz quando o Optional está vazio?",
+        "options": [
+          "Retorna null",
+          "Lança a exceção customizada fornecida",
+          "Ignora silenciosamente e continua a execução",
+          "Sempre lança NullPointerException, ignorando o argumento"
+        ],
+        "correctIndex": 1,
+        "explanation": "orElseThrow aceita um Supplier de exceção — quando o Optional está vazio, ele constrói e lança exatamente a exceção fornecida (aqui, UserNotFoundException), permitindo mensagens de erro específicas do domínio em vez de um NoSuchElementException genérico."
+      }
+    ]
+  }
+]

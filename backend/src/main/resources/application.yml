@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: javabase
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/javabase
+    username: javabase
+    password: javabase
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update # dev: deixa o Hibernate criar/alterar o schema a partir das Entities
+    show-sql: true # dev: loga o SQL gerado — ajuda a enxergar N+1 e queries geradas pelo Spring Data
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  cache:
+    type: caffeine # cache local em memória — ver CacheConfig para TTL/tamanho por cache
+
+web:
+  cors:
+    allowed-origin: http://localhost:5173 # Vite dev server
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.javabase: DEBUG
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

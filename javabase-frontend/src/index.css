@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #16171d;
+  --card: #ffffff;
+  --card-foreground: #16171d;
+  --border: #e5e4e7;
+  --input: #e5e4e7;
+  --muted: #f4f3ec;
+  --muted-foreground: #6b6375;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --accent: #f4f3ec;
+  --accent-foreground: #16171d;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --ring: #7c3aed;
+  --code-bg: #f4f3ec;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #16171d;
+}
+
+.dark {
+  --background: #101014;
+  --foreground: #e5e7eb;
+  --card: #17181f;
+  --card-foreground: #e5e7eb;
+  --border: #2a2b34;
+  --input: #2a2b34;
+  --muted: #1c1d25;
+  --muted-foreground: #9ca3af;
+  --primary: #a78bfa;
+  --primary-foreground: #16171d;
+  --accent: #1c1d25;
+  --accent-foreground: #e5e7eb;
+  --destructive: #f87171;
+  --destructive-foreground: #16171d;
+  --success: #4ade80;
+  --success-foreground: #16171d;
+  --ring: #a78bfa;
+  --code-bg: #1a1b23;
+  --sidebar: #131319;
+  --sidebar-foreground: #e5e7eb;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-ring: var(--ring);
+  --color-code-bg: var(--code-bg);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --font-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Scrollbar discreto, no estilo de docs técnicas */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Prosa em Markdown renderizado (TopicContent) */
+.prose-javabase h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 1.75rem 0 0.75rem;
+}
+.prose-javabase h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 1.5rem 0 0.5rem;
+}
+.prose-javabase p {
+  margin: 0 0 1rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.prose-javabase strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.prose-javabase code {
+  font-family: var(--font-mono);
+  background: var(--code-bg);
+  color: var(--primary);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+.prose-javabase ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+  color: var(--muted-foreground);
+}
+.prose-javabase li {
+  margin-bottom: 0.35rem;
+}
+.prose-javabase a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Shiki dual-theme: alterna as cores dos tokens conforme a classe .dark na <html> */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+  background-color: transparent !important;
+}
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark);
+  background-color: transparent !important;
+}
+
+/* Confete sutil ao acertar 100% do quiz */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(220px) rotate(360deg);
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}

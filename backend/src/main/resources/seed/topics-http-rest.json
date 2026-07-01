@@ -1,0 +1,131 @@
+[
+  {
+    "slug": "http-metodos-get-post-put-delete",
+    "title": "HTTP (GET, POST, PUT, DELETE)",
+    "category": "HTTP_REST",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "Os verbos HTTP comunicam a **intenção** de uma requisição. Duas propriedades importam pra usá-los corretamente: **idempotência** (repetir a mesma requisição várias vezes tem o mesmo efeito de fazer uma vez) e se costuma ter **body**.\n\n**GET** — buscar um recurso. Idempotente, sem body na requisição. Nunca deveria alterar estado no servidor (efeito colateral zero).\n\n**POST** — criar um recurso novo. **Não** idempotente — chamar duas vezes cria dois recursos (ex: dois pedidos). Tem body com os dados do que está sendo criado.\n\n**PUT** — atualizar um recurso **inteiro** (substituindo por completo), ou criá-lo se especificar o ID e ele não existir. É idempotente: chamar PUT com o mesmo body várias vezes resulta no mesmo estado final.\n\n**DELETE** — remover um recurso. Idempotente — deletar algo que já foi deletado ainda resulta em \"não existe mais\", mesmo estado final.\n\n**PATCH** também existe, pra atualização **parcial** (só os campos enviados mudam) — diferente do PUT, que substitui o recurso inteiro.",
+    "codeExample": "// GET: buscar, sem body, idempotente\nGET /api/v1/topics/streams-e-lambda\n\n// POST: criar, com body, NÃO idempotente (duas chamadas = dois recursos)\nPOST /api/v1/progress/complete\nContent-Type: application/json\n\n{ \"sessionId\": \"abc-123\", \"topicSlug\": \"streams-e-lambda\" }\n\n// DELETE: remover, idempotente (deletar de novo não muda o resultado final)\nDELETE /api/v1/reservas/42",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "GET: buscar, sem body, idempotente, sem efeito colateral",
+      "POST: criar, com body, NÃO idempotente (repetir cria múltiplos recursos)",
+      "PUT: substituir o recurso inteiro, idempotente",
+      "DELETE: remover, idempotente (deletar de novo resulta no mesmo estado)",
+      "PATCH: atualização parcial (só os campos enviados mudam), diferente de PUT"
+    ],
+    "relatedTopicSlugs": ["codigos-status-http", "crud"],
+    "quizzes": [
+      {
+        "question": "Por que POST NÃO é considerado idempotente, ao contrário de PUT?",
+        "options": [
+          "POST nunca funciona corretamente",
+          "Chamar POST várias vezes com o mesmo body cria múltiplos recursos novos; PUT com o mesmo body sempre resulta no mesmo estado final",
+          "POST não pode ter body",
+          "Não há diferença de idempotência entre eles"
+        ],
+        "correctIndex": 1,
+        "explanation": "POST é usado para CRIAR — cada chamada tipicamente gera um novo recurso (ex: um novo pedido), então repetir a chamada muda o estado do sistema a cada vez. PUT substitui um recurso específico por completo; repetir a mesma chamada não cria nada novo, resultando sempre no mesmo estado final."
+      },
+      {
+        "question": "Qual verbo HTTP é apropriado para uma atualização PARCIAL de um recurso, alterando só alguns campos?",
+        "options": ["GET", "PUT", "PATCH", "DELETE"],
+        "correctIndex": 2,
+        "explanation": "PUT é semanticamente para substituir o recurso INTEIRO. Quando você quer alterar só alguns campos, mantendo o resto como está, o verbo correto é PATCH."
+      },
+      {
+        "question": "Qual verbo HTTP é idempotente E não deveria ter nenhum efeito colateral no servidor?",
+        "options": ["POST", "GET", "PATCH", "Nenhum verbo é livre de efeito colateral"],
+        "correctIndex": 1,
+        "explanation": "GET é usado exclusivamente para buscar/ler dados — não deveria alterar estado no servidor de forma alguma, e chamá-lo múltiplas vezes deve sempre retornar o mesmo resultado (dado que o estado não mudou por outro motivo)."
+      }
+    ]
+  },
+  {
+    "slug": "codigos-status-http",
+    "title": "Códigos de Status HTTP",
+    "category": "HTTP_REST",
+    "orderIndex": 2,
+    "difficulty": "INICIANTE",
+    "content": "Os códigos de status HTTP comunicam o **resultado** de uma requisição de forma padronizada, dividida em faixas:\n\n**2xx — sucesso**\n- `200 OK` — sucesso geral (GET, PUT bem-sucedidos).\n- `201 Created` — recurso criado com sucesso (resposta padrão de um POST que cria algo).\n- `204 No Content` — sucesso, mas sem corpo de resposta (comum em DELETE).\n\n**4xx — erro do cliente** (quem fez a requisição errou algo)\n- `400 Bad Request` — request inválida: JSON malformado, validação de campo falhou.\n- `404 Not Found` — o recurso pedido não existe.\n- `409 Conflict` — conflito de estado (ex: tentar reservar um assento já reservado, falha de optimistic locking).\n\n**5xx — erro do servidor** (o cliente não fez nada de errado)\n- `500 Internal Server Error` — bug ou falha inesperada no servidor.\n\nUsar o código certo importa: um cliente da API (ou um outro time) toma decisões automatizadas baseado nesse número — por exemplo, fazer retry automático em 5xx faz sentido (pode ser transiente), mas fazer retry em 400 não resolve nada (o problema é o conteúdo da requisição).",
+    "codeExample": "@PostMapping(\"/complete\")\npublic ResponseEntity<TopicProgressResponse> completar(@Valid @RequestBody CompleteTopicRequest request) {\n    TopicProgressResponse response = progressService.marcarComoCompleto(request);\n    return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201: recurso de progresso criado/atualizado\n}\n\n@ExceptionHandler(TopicNotFoundException.class)\npublic ResponseEntity<ErrorResponse> handleNotFound(TopicNotFoundException ex) {\n    return ResponseEntity.status(HttpStatus.NOT_FOUND) // 404: o slug pedido não existe\n        .body(new ErrorResponse(\"TOPIC_NOT_FOUND\", ex.getMessage(), LocalDateTime.now()));\n}",
+    "codeExampleBad": "// Retornar sempre 200, mesmo em caso de erro — obriga o cliente a inspecionar\n// o BODY pra saber se deu certo, em vez de confiar no status HTTP (que é pra isso)\n@GetMapping(\"/{slug}\")\npublic ResponseEntity<Map<String, Object>> buscar(@PathVariable String slug) {\n    Optional<Topic> topic = topicRepository.findBySlug(slug);\n    if (topic.isEmpty()) {\n        // Errado: deveria ser 404, não 200 com uma flag \"sucesso: false\" no corpo\n        return ResponseEntity.ok(Map.of(\"sucesso\", false, \"erro\", \"não encontrado\"));\n    }\n    return ResponseEntity.ok(Map.of(\"sucesso\", true, \"dados\", topic.get()));\n}",
+    "keyPoints": [
+      "2xx = sucesso (200 OK, 201 Created, 204 No Content)",
+      "4xx = erro do cliente (400 Bad Request, 404 Not Found, 409 Conflict)",
+      "5xx = erro do servidor (500 Internal Server Error) — o cliente não fez nada errado",
+      "201 Created é o status correto para POST que cria um recurso com sucesso",
+      "Usar o status certo importa: clientes tomam decisões automatizadas com base nele (ex: retry em 5xx, não em 4xx)"
+    ],
+    "relatedTopicSlugs": ["http-metodos-get-post-put-delete", "tratamento-de-erros-restcontrolleradvice"],
+    "quizzes": [
+      {
+        "question": "Qual status HTTP é apropriado para um POST que cria um novo recurso com sucesso?",
+        "options": ["200 OK", "201 Created", "204 No Content", "202 Accepted"],
+        "correctIndex": 1,
+        "explanation": "201 Created comunica explicitamente que um novo recurso foi criado como resultado da requisição — mais preciso semanticamente que o genérico 200 OK, que serve para sucesso em geral."
+      },
+      {
+        "question": "Por que retornar sempre 200 OK, com uma flag \"sucesso: false\" no corpo para indicar erro, é uma prática ruim?",
+        "options": [
+          "Porque JSON não pode ter campos booleanos",
+          "Porque ignora o propósito dos status HTTP, obrigando todo cliente a inspecionar o corpo pra saber se deu certo",
+          "Porque 200 OK está tecnicamente errado sintaticamente",
+          "Não há problema nenhum nessa prática"
+        ],
+        "correctIndex": 1,
+        "explanation": "O status HTTP existe justamente para comunicar o resultado de forma padronizada e legível por máquina (ferramentas, proxies, bibliotecas HTTP) sem precisar parsear o corpo. Sempre retornar 200 desperdiça esse mecanismo e força lógica extra em todo lugar que consome a API."
+      },
+      {
+        "question": "Uma requisição POST /reservas falha porque o assento já foi reservado por outra pessoa. Qual status é mais apropriado?",
+        "options": ["400 Bad Request", "404 Not Found", "409 Conflict", "500 Internal Server Error"],
+        "correctIndex": 2,
+        "explanation": "409 Conflict é o status certo para quando a requisição em si é válida, mas conflita com o estado atual do recurso no servidor (o assento existe, mas não está mais disponível) — diferente de 400 (request malformada) ou 404 (recurso não existe)."
+      }
+    ]
+  },
+  {
+    "slug": "crud",
+    "title": "CRUD",
+    "category": "HTTP_REST",
+    "orderIndex": 3,
+    "difficulty": "INICIANTE",
+    "content": "CRUD é o acrônimo pras quatro operações básicas de persistência de dados, e o mapeamento direto pra HTTP + SQL que toda API REST segue:\n\n| Operação | Verbo HTTP | SQL |\n|---|---|---|\n| **C**reate | `POST` | `INSERT` |\n| **R**ead | `GET` | `SELECT` |\n| **U**pdate | `PUT`/`PATCH` | `UPDATE` |\n| **D**elete | `DELETE` | `DELETE` |\n\nQuase toda API REST de negócio é, no fundo, uma composição de endpoints CRUD por recurso — este próprio projeto segue o padrão: `GET /api/v1/topics` (Read, listagem), `GET /api/v1/topics/{slug}` (Read, individual), `POST /api/v1/progress/complete` (Create/upsert de progresso).\n\nNem toda ação de negócio cabe perfeitamente num verbo CRUD puro (ex: \"submeter quiz\" é mais uma ação do que uma criação de recurso no sentido estrito) — nesses casos, é comum usar `POST` mesmo assim, tratando a ação como criação de um \"evento\" ou \"resultado\" (`POST /progress/quiz` cria um resultado de quiz).",
+    "codeExample": "// C - Create\nPOST /api/v1/progress/complete\n{ \"sessionId\": \"abc\", \"topicSlug\": \"generics\" }\n\n// R - Read (listagem e individual)\nGET /api/v1/topics\nGET /api/v1/topics/generics\n\n// U - Update (marcar como completo de novo, atualizando completedAt — é um upsert)\nPOST /api/v1/progress/complete // reenviar atualiza o registro existente\n\n// D - Delete (exemplo hipotético, não implementado neste projeto)\nDELETE /api/v1/progress/{sessionId}/{topicSlug}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "CRUD = Create, Read, Update, Delete — as 4 operações básicas de persistência",
+      "Mapeamento direto: Create→POST/INSERT, Read→GET/SELECT, Update→PUT-PATCH/UPDATE, Delete→DELETE/DELETE",
+      "A maioria das APIs REST de negócio é uma composição de endpoints CRUD por recurso",
+      "Ações que não são criação/leitura/atualização/remoção pura (ex: 'submeter quiz') geralmente usam POST, tratando o resultado como um recurso criado",
+      "Um endpoint de 'completar novamente' que atualiza um registro existente é um padrão comum de upsert"
+    ],
+    "relatedTopicSlugs": ["http-metodos-get-post-put-delete", "sql-basico"],
+    "quizzes": [
+      {
+        "question": "No mapeamento CRUD, qual verbo HTTP corresponde à operação de Update?",
+        "options": ["GET", "POST", "PUT ou PATCH", "DELETE"],
+        "correctIndex": 2,
+        "explanation": "Update mapeia para PUT (substituição completa do recurso) ou PATCH (atualização parcial), ambos gerando um comando SQL UPDATE por trás."
+      },
+      {
+        "question": "Por que 'submeter um quiz' costuma ser implementado como POST, mesmo não sendo estritamente uma 'criação' no sentido de CRUD?",
+        "options": [
+          "Porque GET não pode ter resposta",
+          "Porque é comum tratar a ação como criação de um recurso 'resultado' (o registro do resultado do quiz)",
+          "Porque toda ação de negócio deveria usar DELETE",
+          "Não existe justificativa, é um erro comum"
+        ],
+        "correctIndex": 1,
+        "explanation": "Nem toda ação de negócio é puramente CRUD. A convenção prática é modelar ações como 'submeter quiz' como a criação de um recurso conceitual (o resultado/registro daquela submissão), o que justifica naturalmente o uso de POST com status 201 Created."
+      },
+      {
+        "question": "Qual comando SQL o Spring Data JPA executa por trás de um `repository.save(entidadeNova)` quando o ID ainda não existe?",
+        "options": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "correctIndex": 1,
+        "explanation": "Quando a entidade passada para save() não tem um ID já persistido, o Hibernate identifica que é uma criação e gera um INSERT. Se o ID já existir no banco, save() gera um UPDATE — esse é o comportamento de 'upsert' do JpaRepository."
+      }
+    ]
+  }
+]

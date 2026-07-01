@@ -1,0 +1,103 @@
+[
+  {
+    "slug": "exception-vs-runtimeexception",
+    "title": "Exception vs RuntimeException",
+    "category": "EXCEPTIONS",
+    "orderIndex": 1,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Java divide exceções em duas famílias com regras de compilação diferentes:\n\n**Checked Exception** (subclasses diretas de `Exception`, exceto `RuntimeException`) — o **compilador obriga** você a tratar (`try/catch`) ou declarar (`throws`) explicitamente. Exemplos: `IOException`, `SQLException`. A ideia é sinalizar condições **esperadas e recuperáveis** — um arquivo pode não existir, uma conexão pode cair; o chamador precisa decidir o que fazer.\n\n**Unchecked Exception** (subclasses de `RuntimeException`) — **não precisa declarar nem tratar**. Exemplos: `NullPointerException`, `IllegalArgumentException`, `IndexOutOfBoundsException`. Geralmente sinalizam **bug de programação** — algo que, com código correto, não deveria acontecer.\n\nRegra prática pra criar suas próprias exceções: se é uma condição de negócio esperada que o chamador pode/deve tratar de forma diferente (ex: \"assento já reservado\") e você quer forçar tratamento explícito, considere checked. Na prática, no ecossistema Spring moderno, a maioria das exceções customizadas de negócio é **unchecked** (estende `RuntimeException`), tratadas de forma centralizada via `@RestControllerAdvice` — evita poluir assinaturas de método com `throws` em cascata.",
+    "codeExample": "// Unchecked: não precisa de throws na assinatura, nem try/catch obrigatório\npublic class TopicNotFoundException extends RuntimeException {\n    public TopicNotFoundException(String slug) {\n        super(\"Tópico '\" + slug + \"' não encontrado\");\n    }\n}\n\n// Checked: compilador obriga a declarar throws (ou usar try/catch)\npublic void lerArquivoConfig() throws IOException {\n    Files.readString(Path.of(\"config.properties\"));\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Checked (Exception): compilador obriga tratar ou declarar com throws — ex: IOException, SQLException",
+      "Unchecked (RuntimeException): não precisa declarar — ex: NullPointerException, IllegalArgumentException",
+      "Checked = condição esperada/recuperável; Unchecked = geralmente bug de programação",
+      "Em Spring, exceções de negócio customizadas costumam ser unchecked, tratadas via @RestControllerAdvice",
+      "Toda RuntimeException também é uma Exception — a hierarquia é Exception > RuntimeException"
+    ],
+    "relatedTopicSlugs": ["try-catch-finally", "tratamento-de-erros-restcontrolleradvice"],
+    "quizzes": [
+      {
+        "question": "Qual a principal diferença prática entre Checked e Unchecked Exception?",
+        "options": [
+          "Checked é mais rápida em runtime",
+          "O compilador obriga tratar/declarar Checked Exceptions; Unchecked não precisa",
+          "Unchecked só existe em versões antigas do Java",
+          "Checked só pode ser lançada em métodos static"
+        ],
+        "correctIndex": 1,
+        "explanation": "Checked Exceptions (subclasses de Exception que não são RuntimeException) exigem try/catch ou throws na assinatura — o compilador verifica isso. RuntimeException e suas subclasses (unchecked) não têm essa exigência."
+      },
+      {
+        "question": "Por que exceções de negócio customizadas em APIs Spring costumam estender RuntimeException, e não Exception diretamente?",
+        "options": [
+          "RuntimeException é mais rápida de lançar",
+          "Evita poluir assinaturas de método com 'throws' em cascata por todas as camadas",
+          "Exception não pode ser usada em @RestControllerAdvice",
+          "É uma limitação técnica do Spring, não uma escolha de design"
+        ],
+        "correctIndex": 1,
+        "explanation": "Se TopicNotFoundException fosse checked, cada método na cadeia Controller → Service → Repository precisaria declarar 'throws TopicNotFoundException', mesmo sem tratá-la ali. Unchecked evita essa poluição, deixando o tratamento centralizado no @RestControllerAdvice."
+      },
+      {
+        "question": "NullPointerException e IllegalArgumentException são exemplos de qual tipo de exceção?",
+        "options": ["Checked Exception", "Unchecked Exception (RuntimeException)", "Error", "Nenhuma das anteriores — são warnings"],
+        "correctIndex": 1,
+        "explanation": "Ambas estendem RuntimeException, então são unchecked — não precisam ser declaradas com throws nem obrigatoriamente tratadas. Tipicamente sinalizam bugs de programação (acessar algo null, passar um argumento inválido)."
+      }
+    ]
+  },
+  {
+    "slug": "try-catch-finally",
+    "title": "try/catch/finally",
+    "category": "EXCEPTIONS",
+    "orderIndex": 2,
+    "difficulty": "INICIANTE",
+    "content": "Estrutura básica de tratamento de exceções: `try` contém código que pode lançar exceção; `catch` intercepta um tipo específico de exceção e decide o que fazer; `finally` **sempre executa**, com ou sem exceção — é o lugar certo pra liberar recursos (fechar conexão, arquivo, etc).\n\nVocê pode ter múltiplos blocos `catch` pra tratar tipos diferentes de exceção de formas diferentes — do mais específico pro mais genérico (senão o compilador acusa erro, porque um catch genérico antes \"esconderia\" os específicos).\n\nDesde o Java 7, prefira **try-with-resources** (`try (var conexao = ...)`) para qualquer recurso que implemente `AutoCloseable` — o `close()` é chamado automaticamente ao sair do bloco, mesmo em caso de exceção, sem precisar de um `finally` manual pra isso.",
+    "codeExample": "// try-with-resources: fecha o recurso automaticamente, mesmo se der exceção\ntry (BufferedReader leitor = new BufferedReader(new FileReader(\"dados.txt\"))) {\n    String linha = leitor.readLine();\n    System.out.println(linha);\n} catch (IOException e) {\n    System.out.println(\"Erro ao ler arquivo: \" + e.getMessage());\n}\n// leitor.close() foi chamado automaticamente aqui — não precisa de finally manual\n\n// finally clássico: útil quando o recurso não implementa AutoCloseable\nConexao conexao = null;\ntry {\n    conexao = abrirConexao();\n    conexao.executar(\"SELECT 1\");\n} catch (SQLException e) {\n    System.out.println(\"Falhou: \" + e.getMessage());\n} finally {\n    if (conexao != null) {\n        conexao.fechar(); // sempre executa, garante que a conexão não vaza\n    }\n}",
+    "codeExampleBad": "Conexao conexao = abrirConexao();\ntry {\n    conexao.executar(\"SELECT 1\"); // se isso lançar exceção...\n} catch (SQLException e) {\n    System.out.println(\"Erro\");\n}\n// ...conexao.fechar() nunca é chamado! Faltou o finally (ou try-with-resources).\n// Isso é um vazamento de recurso (connection leak) — cada request que passa por aqui\n// deixa uma conexão aberta, até esgotar o pool.",
+    "keyPoints": [
+      "try: código arriscado. catch: trata exceção específica. finally: sempre executa",
+      "finally é o lugar certo pra liberar recursos, mesmo quando ocorre exceção",
+      "Múltiplos catch: do mais específico para o mais genérico",
+      "try-with-resources (Java 7+): fecha AutoCloseable automaticamente, sem finally manual",
+      "Esquecer de fechar um recurso (sem finally nem try-with-resources) causa vazamento — ex: esgotar pool de conexões"
+    ],
+    "relatedTopicSlugs": ["exception-vs-runtimeexception"],
+    "quizzes": [
+      {
+        "question": "O bloco `finally` executa em qual dessas situações?",
+        "options": [
+          "Só quando não há exceção",
+          "Só quando há exceção tratada pelo catch",
+          "Sempre — com ou sem exceção, tratada ou não",
+          "Só se o try tiver um return"
+        ],
+        "correctIndex": 2,
+        "explanation": "finally sempre executa, independente do que acontece no try/catch — inclusive se o try tiver um return, ou se a exceção não for capturada por nenhum catch. Por isso é o lugar certo pra garantir liberação de recursos."
+      },
+      {
+        "question": "Qual a vantagem de try-with-resources sobre um finally manual pra fechar recursos?",
+        "options": [
+          "É mais rápido em runtime",
+          "Fecha o recurso automaticamente ao sair do bloco, sem precisar escrever o close() manualmente",
+          "Não permite capturar exceções",
+          "Só funciona com arquivos, não com conexões de banco"
+        ],
+        "correctIndex": 1,
+        "explanation": "Qualquer recurso que implemente AutoCloseable (streams, conexões JDBC, etc) pode ser declarado em try (recurso = ...) — o Java chama close() automaticamente ao sair do bloco, com ou sem exceção, eliminando a necessidade do finally manual e o risco de esquecer de fechar."
+      },
+      {
+        "question": "Ao ter múltiplos blocos catch para tipos diferentes de exceção, qual deve vir primeiro?",
+        "options": [
+          "A ordem não importa",
+          "O tipo mais genérico primeiro",
+          "O tipo mais específico primeiro, depois os mais genéricos",
+          "Sempre em ordem alfabética"
+        ],
+        "correctIndex": 2,
+        "explanation": "Um catch mais genérico posicionado antes de um mais específico 'esconderia' o específico (nunca seria alcançado), e o compilador Java rejeita isso como erro. Por isso a ordem correta é do mais específico para o mais genérico."
+      }
+    ]
+  }
+]

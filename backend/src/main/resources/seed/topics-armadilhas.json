@@ -1,0 +1,151 @@
+[
+  {
+    "slug": "equals-vs-referencia",
+    "title": "== vs .equals()",
+    "category": "ARMADILHAS",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "`==` compara **referência** — se as duas variáveis apontam pro mesmo objeto na memória. `.equals()` compara **conteúdo** — se dois objetos são \"iguais\" segundo a lógica definida na classe (por padrão, `Object.equals()` também compara referência, mas classes como `String` sobrescrevem esse comportamento pra comparar caracteres).\n\nPara `String`, **sempre** use `.equals()`. `new String(\"java\")` cria um objeto novo na heap toda vez, mesmo com o mesmo conteúdo — então `==` entre dois `new String(...)` quase sempre dá `false`, mesmo que o texto seja idêntico.\n\nDetalhe que confunde: literais de String (`\"java\"` sem `new`) usam o **String Pool** — o Java reaproveita o mesmo objeto para literais idênticos, então `\"java\" == \"java\"` costuma dar `true`. Isso é um detalhe de otimização da JVM, não uma garantia pra confiar — a regra continua sendo: use `.equals()` para comparar conteúdo de String, sempre.\n\n`==` funciona corretamente com primitivos (`int`, `boolean`...) porque eles não são objetos — ali, `==` compara o valor diretamente, o que é o comportamento esperado.",
+    "codeExample": "String a = \"java\";\nString b = \"java\";\nSystem.out.println(a.equals(b)); // true — sempre correto, compara conteúdo\n\nint x = 5;\nint y = 5;\nSystem.out.println(x == y); // true — primitivos comparam valor diretamente, é o esperado",
+    "codeExampleBad": "String a = new String(\"java\");\nString b = new String(\"java\");\n\nSystem.out.println(a == b);        // false — são dois objetos diferentes na heap\nSystem.out.println(a.equals(b));   // true — mesmo conteúdo, é isso que importa",
+    "keyPoints": [
+      "== compara referência (mesmo objeto na memória); .equals() compara conteúdo",
+      "Para String, use SEMPRE .equals() — nunca ==",
+      "new String(\"x\") cria um objeto novo na heap, mesmo com conteúdo idêntico a outro",
+      "Literais de String usam o String Pool, o que pode fazer == 'funcionar por acaso' — não confie nisso",
+      "== é correto e esperado para primitivos, porque eles não são objetos"
+    ],
+    "relatedTopicSlugs": ["string-vs-stringbuilder", "classes-objetos"],
+    "quizzes": [
+      {
+        "question": "O que `new String(\"java\") == new String(\"java\")` retorna?",
+        "options": ["true", "false", "Erro de compilação", "NullPointerException"],
+        "correctIndex": 1,
+        "explanation": "== compara referências. new String(...) sempre cria um objeto novo na heap, então as duas referências apontam para objetos diferentes, mesmo com conteúdo idêntico — o resultado é false."
+      },
+      {
+        "question": "Por que `\"java\" == \"java\"` (sem new) costuma retornar true, mesmo == comparando referência?",
+        "options": [
+          "Porque String é primitivo em Java",
+          "Porque literais de String são reaproveitados do String Pool da JVM",
+          "Porque o compilador substitui == por equals() automaticamente para String",
+          "Isso nunca retorna true"
+        ],
+        "correctIndex": 1,
+        "explanation": "A JVM mantém um String Pool: literais String idênticos apontam para o mesmo objeto reaproveitado, então == 'funciona por acaso'. Isso é um detalhe de otimização, não uma garantia — a prática correta continua sendo usar .equals()."
+      },
+      {
+        "question": "Por que `==` é seguro para comparar dois `int`, mas não para comparar dois `Integer`?",
+        "options": [
+          "Não há diferença nenhuma entre os dois casos",
+          "int é primitivo (== compara valor); Integer é objeto (== compara referência, com cache só para valores pequenos)",
+          "Integer nunca pode ser comparado com ==",
+          "int sempre precisa de cast antes de comparar"
+        ],
+        "correctIndex": 1,
+        "explanation": "int compara valor diretamente com ==, sempre correto. Integer é um objeto — == compara referência. A JVM cacheia Integers de -128 a 127 (Integer Cache), então == pode 'parecer funcionar' nesse intervalo e falhar fora dele — outra armadilha clássica."
+      }
+    ]
+  },
+  {
+    "slug": "string-vs-stringbuilder",
+    "title": "String vs StringBuilder",
+    "category": "ARMADILHAS",
+    "orderIndex": 2,
+    "difficulty": "INTERMEDIARIO",
+    "content": "`String` em Java é **imutável** — uma vez criada, seu conteúdo nunca muda. Toda operação que \"parece\" alterar uma String (`+`, `concat`, `replace`...) na verdade cria um objeto novo e descarta o antigo (deixando-o pro garbage collector).\n\nPara concatenação **simples** (`\"a\" + \"b\" + variavel`), o compilador Java já otimiza automaticamente usando `StringBuilder` por trás dos panos — não precisa se preocupar.\n\nO problema real aparece em **loops**: concatenar String dentro de um `for` com milhares de iterações cria milhares de objetos String intermediários descartados, o que é caro em tempo e memória. Nesse cenário, use `StringBuilder` explicitamente — ele é **mutável**, então `append()` modifica o mesmo buffer interno em vez de criar um objeto novo a cada chamada.\n\nRegra prática: concatenação pontual fora de loop → `+` está ótimo e é mais legível. Concatenação dentro de loop, ou montando uma String grande em várias etapas → `StringBuilder`.",
+    "codeExample": "// Fora de loop: o compilador já otimiza isso com StringBuilder internamente\nString mensagem = \"Olá, \" + nome + \"! Você tem \" + idade + \" anos.\";\n\n// Dentro de loop: StringBuilder explícito evita criar N objetos String intermediários\nStringBuilder sb = new StringBuilder();\nfor (int i = 0; i < 10_000; i++) {\n    sb.append(\"item \").append(i).append(\"\\n\"); // muta o MESMO buffer, sem criar objeto novo\n}\nString resultado = sb.toString(); // só converte pra String uma vez, no final",
+    "codeExampleBad": "// Cada + dentro do loop cria um novo objeto String e descarta o anterior.\n// Com 10.000 iterações, isso significa milhares de objetos intermediários no lixo.\nString resultado = \"\";\nfor (int i = 0; i < 10_000; i++) {\n    resultado = resultado + \"item \" + i + \"\\n\"; // cria String nova a cada volta\n}",
+    "keyPoints": [
+      "String é imutável — toda 'modificação' cria um objeto novo",
+      "Concatenação simples fora de loop: '+' já é otimizado pelo compilador, pode usar sem medo",
+      "Concatenação DENTRO de loop com muitas iterações: use StringBuilder explicitamente",
+      "StringBuilder é mutável — append() modifica o mesmo buffer, sem criar objetos intermediários",
+      "Chame .toString() só uma vez, no final, para converter o StringBuilder de volta pra String"
+    ],
+    "relatedTopicSlugs": ["equals-vs-referencia", "array-vs-arraylist"],
+    "quizzes": [
+      {
+        "question": "Por que concatenar String dentro de um loop com 10.000 iterações é ineficiente?",
+        "options": [
+          "Porque String não pode ser usada em loops",
+          "Porque cada concatenação cria um novo objeto String, descartando o anterior — milhares de objetos no lixo",
+          "Porque loops são sempre lentos em Java",
+          "Porque + não funciona dentro de for"
+        ],
+        "correctIndex": 1,
+        "explanation": "String é imutável: cada 'resultado = resultado + x' cria um objeto String totalmente novo. Em 10.000 iterações, isso são até 10.000 objetos intermediários alocados e descartados — desperdício de CPU e pressão no garbage collector."
+      },
+      {
+        "question": "Por que não precisa se preocupar com `String msg = \"Olá, \" + nome + \"!\";` fora de um loop?",
+        "options": [
+          "Porque essa forma nunca cria objetos novos",
+          "Porque o compilador já otimiza concatenações simples usando StringBuilder internamente",
+          "Porque + é mais rápido que StringBuilder sempre",
+          "Porque nome é sempre null nesse caso"
+        ],
+        "correctIndex": 1,
+        "explanation": "Para concatenações pontuais (fora de loops), o compilador Java já gera bytecode equivalente a um StringBuilder por trás dos panos. O ganho de usar StringBuilder manualmente só aparece em cenários repetitivos como loops."
+      },
+      {
+        "question": "Qual método do StringBuilder converte o buffer mutável de volta para um objeto String imutável?",
+        "options": ["toString()", "build()", "convert()", "finalize()"],
+        "correctIndex": 0,
+        "explanation": "sb.toString() cria a String final a partir do conteúdo acumulado no StringBuilder. É comum chamar isso só uma vez, no final do processo de montagem, evitando conversões intermediárias desnecessárias."
+      }
+    ]
+  },
+  {
+    "slug": "array-vs-arraylist",
+    "title": "Array vs ArrayList",
+    "category": "ARMADILHAS",
+    "orderIndex": 3,
+    "difficulty": "INICIANTE",
+    "content": "**Array** (`int[]`, `String[]`) tem **tamanho fixo** definido na criação — não dá pra crescer ou encolher depois. Pode conter primitivos diretamente (`int[]`, sem boxing), o que dá acesso O(1) muito eficiente em memória.\n\n**ArrayList** (`List<Integer>`) tem **tamanho dinâmico** — cresce conforme você adiciona elementos. Mas só aceita objetos (por causa de generics), então `List<int>` não compila — você usa `List<Integer>`, pagando o custo de autoboxing em cada elemento.\n\nNa prática, **95% das vezes você quer `ArrayList`** (ou `List.of(...)` para uma lista imutável) — a flexibilidade de tamanho dinâmico e os métodos da interface `List` (`add`, `remove`, `contains`, `stream()`...) compensam o overhead. Reserve arrays primitivos pra cenários onde performance/memória é crítica e o tamanho é conhecido de antemão (ex: buffers, matrizes numéricas grandes).",
+    "codeExample": "// Array: tamanho fixo, definido na criação\nint[] numeros = new int[5];\nnumeros[0] = 10;\n// numeros[5] = 1; // ArrayIndexOutOfBoundsException — não existe posição 5 num array de tamanho 5\n\n// ArrayList: tamanho dinâmico\nList<Integer> lista = new ArrayList<>();\nlista.add(10);\nlista.add(20);\nlista.remove(0); // pode remover e continuar adicionando — array não permite isso\n\n// Lista imutável (Java 9+): útil para constantes/valores que não devem mudar\nList<String> cores = List.of(\"vermelho\", \"verde\", \"azul\");",
+    "codeExampleBad": "int[] numeros = {1, 2, 3};\n\n// Não existe \"numeros.add(4)\" — array não tem esse método, tamanho é fixo.\n// Pra 'crescer' um array, você precisa criar um array NOVO maior e copiar tudo:\nint[] maior = Arrays.copyOf(numeros, numeros.length + 1);\nmaior[maior.length - 1] = 4;\n// Isso é exatamente o que ArrayList faz por baixo dos panos, automaticamente, por você.",
+    "keyPoints": [
+      "Array: tamanho fixo, aceita primitivos diretamente, acesso O(1) muito eficiente",
+      "ArrayList: tamanho dinâmico, só aceita objetos (Integer, não int), implementa List",
+      "Na prática, prefira ArrayList (ou List.of() para imutável) na grande maioria dos casos",
+      "ArrayList cresce automaticamente criando um array maior e copiando por trás dos panos",
+      "Use array primitivo só quando performance/memória é crítica e o tamanho é fixo e conhecido"
+    ],
+    "relatedTopicSlugs": ["list-set-map", "for-while-foreach"],
+    "quizzes": [
+      {
+        "question": "Por que `List<int>` não compila em Java, sendo preciso usar `List<Integer>`?",
+        "options": [
+          "Porque int é uma palavra reservada",
+          "Porque Generics em Java só trabalham com tipos de referência (objetos), não primitivos",
+          "Porque List só aceita String",
+          "É um bug do compilador"
+        ],
+        "correctIndex": 1,
+        "explanation": "Generics em Java usam type erasure e trabalham internamente com Object — primitivos não são objetos, então não podem ser usados diretamente como parâmetro de tipo genérico. Por isso List<Integer> (wrapper) é necessário, com autoboxing acontecendo nos bastidores."
+      },
+      {
+        "question": "O que acontece quando você chama `.add()` numa ArrayList que já atingiu sua capacidade interna?",
+        "options": [
+          "Lança uma exceção de capacidade excedida",
+          "A ArrayList cria um array interno maior e copia os elementos automaticamente",
+          "O elemento é descartado silenciosamente",
+          "A ArrayList vira um array primitivo"
+        ],
+        "correctIndex": 1,
+        "explanation": "ArrayList é implementada usando um array por baixo dos panos. Quando esse array interno enche, a ArrayList aloca um array novo e maior, copia os elementos existentes, e passa a usar o novo — tudo isso de forma transparente para quem está usando .add()."
+      },
+      {
+        "question": "Qual das opções abaixo é uma vantagem real de usar array primitivo (`int[]`) em vez de `ArrayList<Integer>`?",
+        "options": [
+          "Array permite remover elementos, ArrayList não",
+          "Array evita o overhead de autoboxing e tem acesso mais eficiente em memória",
+          "Array tem métodos como .stream() e ArrayList não",
+          "Não existe nenhuma vantagem real"
+        ],
+        "correctIndex": 1,
+        "explanation": "Array primitivo armazena os valores diretamente, sem boxing pra Integer — isso economiza memória (sem overhead de objeto por elemento) e evita o custo de autoboxing/unboxing repetido, relevante em cenários de performance crítica com grandes volumes numéricos."
+      }
+    ]
+  }
+]

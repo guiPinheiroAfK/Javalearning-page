@@ -1,0 +1,246 @@
+[
+  {
+    "slug": "encapsulamento",
+    "title": "Encapsulamento",
+    "category": "OOP",
+    "orderIndex": 1,
+    "difficulty": "INICIANTE",
+    "content": "Encapsulamento é esconder o estado interno de um objeto e expor só o que é necessário através de métodos públicos — na prática, campos `private` acessados por getters/setters (ou, melhor ainda, por métodos com nomes de negócio).\n\nA razão de existir não é burocracia: é **proteger invariantes**. Se `saldo` fosse `public`, qualquer código poderia fazer `conta.saldo = -500`, violando a regra de que uma conta não pode ficar negativa. Com o campo `private` e um método `sacar(valor)` que valida antes de alterar o saldo, a classe garante que seu próprio estado nunca fica inconsistente.\n\nEncapsulamento também reduz acoplamento: você pode mudar a implementação interna (trocar de `int` pra `BigDecimal`, por exemplo) sem quebrar quem usa a classe, desde que a assinatura pública dos métodos continue a mesma.",
+    "codeExample": "public class ContaBancaria {\n    private double saldo; // estado escondido — ninguém mexe direto\n\n    public ContaBancaria(double saldoInicial) {\n        this.saldo = saldoInicial;\n    }\n\n    public void sacar(double valor) {\n        if (valor > saldo) {\n            throw new IllegalArgumentException(\"Saldo insuficiente\");\n        }\n        this.saldo -= valor; // única porta de entrada pra alterar o saldo\n    }\n\n    public double getSaldo() {\n        return saldo; // leitura controlada, sem expor o campo em si\n    }\n}",
+    "codeExampleBad": "public class ContaBancaria {\n    public double saldo; // campo público: qualquer código pode quebrar o invariante\n\n    public ContaBancaria(double saldoInicial) {\n        this.saldo = saldoInicial;\n    }\n}\n\n// em qualquer lugar do código:\nContaBancaria conta = new ContaBancaria(100);\nconta.saldo = -99999; // nada impede isso — o invariante \"saldo >= 0\" nunca é garantido",
+    "keyPoints": [
+      "Encapsulamento = campos private + acesso controlado via métodos públicos",
+      "Protege invariantes: a classe garante que seu próprio estado nunca fica inconsistente",
+      "Reduz acoplamento — a implementação interna pode mudar sem quebrar quem usa a classe",
+      "Getters/setters não são o objetivo em si — métodos com nome de negócio (sacar, depositar) são mais expressivos"
+    ],
+    "relatedTopicSlugs": ["classes-objetos", "abstracao"],
+    "quizzes": [
+      {
+        "question": "Qual o principal motivo para deixar um campo `private` em vez de `public`?",
+        "options": [
+          "Deixa o código mais rápido em runtime",
+          "É exigido pelo compilador Java",
+          "Permite validar/controlar as mudanças de estado e proteger invariantes",
+          "Reduz o tamanho do arquivo .class"
+        ],
+        "correctIndex": 2,
+        "explanation": "Com o campo private, a única forma de alterar o estado é através de métodos que a própria classe controla — permitindo validar a mudança antes de aplicá-la, o que garante que o objeto nunca fique num estado inválido."
+      },
+      {
+        "question": "No exemplo com `saldo` público, o que impede alguém de fazer `conta.saldo = -99999`?",
+        "options": ["O compilador bloqueia atribuições negativas", "Nada — é exatamente esse o problema", "O Java lança exceção automaticamente", "Só funciona se a classe for final"],
+        "correctIndex": 1,
+        "explanation": "Com o campo público, não existe nenhuma barreira: qualquer código externo pode atribuir qualquer valor diretamente, inclusive violando regras de negócio como 'saldo não pode ser negativo'."
+      },
+      {
+        "question": "Qual método de acesso é considerado mais expressivo que um setter genérico, do ponto de vista de encapsulamento?",
+        "options": [
+          "setSaldo(double valor)",
+          "Um método com nome de negócio, como sacar(double valor), que valida antes de alterar o estado",
+          "Deixar o campo public diretamente",
+          "Não há diferença entre as opções"
+        ],
+        "correctIndex": 1,
+        "explanation": "Um setter genérico (setSaldo) permite qualquer valor, inclusive inválidos. Um método com nome de negócio (sacar) comunica a intenção e pode aplicar validação específica (ex: não permitir saldo negativo) antes de alterar o estado interno."
+      }
+    ]
+  },
+  {
+    "slug": "heranca",
+    "title": "Herança",
+    "category": "OOP",
+    "orderIndex": 2,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Uma classe filha (`extends`) herda campos e métodos de uma classe pai. Java só permite **herança simples** — uma classe só pode estender uma única superclasse (diferente de interfaces, onde você pode implementar várias).\n\n`super()` chama o construtor da classe pai — se você não chamar explicitamente, o Java insere uma chamada implícita a `super()` (sem argumentos) como primeira linha do construtor da filha. Se a pai não tiver um construtor sem argumentos, isso vira erro de compilação e você precisa chamar `super(...)` explicitamente.\n\nUse herança com cautela: é fácil abusar dela e criar hierarquias profundas e frágeis (mudar a classe base quebra várias filhas de formas inesperadas — o \"fragile base class problem\"). A recomendação moderna é **preferir composição a herança** na maioria dos casos — ter um objeto como campo (\"tem um\") em vez de estender (\"é um\") — reservando herança para relações \"é um\" genuinamente estáveis.",
+    "codeExample": "public class Animal {\n    protected String nome;\n\n    public Animal(String nome) {\n        this.nome = nome;\n    }\n\n    public void dormir() {\n        System.out.println(nome + \" está dormindo\");\n    }\n}\n\npublic class Cachorro extends Animal {\n    public Cachorro(String nome) {\n        super(nome); // chama o construtor de Animal — obrigatório se Animal não tem construtor vazio\n    }\n\n    public void latir() {\n        System.out.println(nome + \" au au!\"); // 'nome' herdado de Animal\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "extends: herança simples — só uma superclasse por classe",
+      "super() chama o construtor da pai; sem chamada explícita, o Java insere super() vazio",
+      "protected é acessível pela própria classe, mesmo pacote e subclasses",
+      "Herança profunda é frágil — mudanças na classe base afetam todas as filhas em cascata",
+      "Regra prática: prefira composição ('tem um') a herança ('é um') quando não houver relação IS-A genuína"
+    ],
+    "relatedTopicSlugs": ["polimorfismo", "interface-vs-classe-abstrata"],
+    "quizzes": [
+      {
+        "question": "Quantas classes uma classe Java pode estender diretamente com `extends`?",
+        "options": ["Quantas quiser", "No máximo uma (herança simples)", "No máximo duas", "Depende se são abstratas ou não"],
+        "correctIndex": 1,
+        "explanation": "Diferente de interfaces (onde 'implements' aceita várias), o extends em Java permite herdar de apenas uma superclasse — é chamado de herança simples."
+      },
+      {
+        "question": "O que acontece se a classe pai NÃO tem um construtor sem argumentos e a filha não chama `super(...)` explicitamente?",
+        "options": [
+          "O Java usa valores padrão automaticamente",
+          "Erro de compilação — a chamada implícita a super() vazio falha",
+          "Funciona normalmente em runtime",
+          "A filha herda o construtor com argumentos automaticamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Toda classe filha precisa, direta ou indiretamente, chamar um construtor da pai. Se a pai só tem construtores com argumentos, a filha é obrigada a chamar super(argumentos) explicitamente — senão não compila."
+      },
+      {
+        "question": "Por que a recomendação moderna é 'preferir composição a herança'?",
+        "options": [
+          "Porque herança não existe em versões recentes do Java",
+          "Porque composição é sempre mais rápida em runtime",
+          "Porque hierarquias de herança profundas ficam frágeis e acopladas",
+          "Porque interfaces substituíram completamente classes abstratas"
+        ],
+        "correctIndex": 2,
+        "explanation": "Herança cria acoplamento forte entre pai e filhas — mudar a implementação da classe base pode quebrar subclasses de formas não óbvias. Composição (ter um objeto como campo) tende a ser mais flexível e menos frágil."
+      }
+    ]
+  },
+  {
+    "slug": "polimorfismo",
+    "title": "Polimorfismo",
+    "category": "OOP",
+    "orderIndex": 3,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Polimorfismo é ter o mesmo método se comportando de forma diferente dependendo do contexto. Dois sabores:\n\n**Compile-time (overloading)** — vários métodos com o mesmo nome e parâmetros diferentes; o compilador decide qual chamar baseado nos tipos dos argumentos.\n\n**Runtime (overriding)** — uma subclasse redefine um método herdado com `@Override`; qual versão executa é decidido em runtime, baseado no **tipo real do objeto**, não no tipo da variável que o referencia.\n\nÉ isso que permite tratar `Dog` e `Cat` como `Animal` genericamente (`List<Animal>`) e, ao chamar `animal.speak()` em cada um, cada objeto executar sua própria versão — sem o código que itera precisar saber se é um Dog ou um Cat. Essa é a base de código extensível: você adiciona um novo tipo de Animal sem tocar no código que já usa a lista.",
+    "codeExample": "public abstract class Animal {\n    public abstract String falar();\n}\n\npublic class Cachorro extends Animal {\n    @Override\n    public String falar() { return \"Au au!\"; }\n}\n\npublic class Gato extends Animal {\n    @Override\n    public String falar() { return \"Miau!\"; }\n}\n\npublic class Zoologico {\n    public static void main(String[] args) {\n        List<Animal> animais = List.of(new Cachorro(), new Gato());\n\n        for (Animal animal : animais) {\n            // o tipo da variável é Animal, mas o método executado depende\n            // do tipo REAL do objeto em runtime — isso é polimorfismo\n            System.out.println(animal.falar());\n        }\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Overloading = polimorfismo em compile-time (mesmo nome, parâmetros diferentes)",
+      "Overriding = polimorfismo em runtime (@Override, decidido pelo tipo real do objeto)",
+      "Permite tratar subtipos de forma genérica através do supertipo (List<Animal> com Dog e Cat)",
+      "@Override não é obrigatório, mas evita bugs — o compilador avisa se você não está de fato sobrescrevendo nada",
+      "Código que usa o supertipo não precisa mudar quando um novo subtipo é adicionado"
+    ],
+    "relatedTopicSlugs": ["heranca", "abstracao"],
+    "quizzes": [
+      {
+        "question": "Numa `List<Animal>` contendo Cachorro e Gato, o que decide qual `falar()` executa em cada iteração?",
+        "options": [
+          "O tipo declarado da variável (Animal)",
+          "O tipo real do objeto em runtime",
+          "A ordem em que foram adicionados à lista",
+          "É indefinido — depende da JVM"
+        ],
+        "correctIndex": 1,
+        "explanation": "Polimorfismo em runtime (overriding) é resolvido pelo tipo real do objeto na heap, não pelo tipo declarado da variável/referência. Isso é chamado de 'dynamic dispatch'."
+      },
+      {
+        "question": "Qual a diferença fundamental entre overloading e overriding?",
+        "options": [
+          "Não há diferença, são sinônimos",
+          "Overloading é resolvido em compile-time; overriding é resolvido em runtime",
+          "Overloading só funciona com métodos static",
+          "Overriding exige que os parâmetros sejam diferentes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Overloading (mesmo nome, assinatura diferente) é decidido pelo compilador com base nos tipos dos argumentos. Overriding (subclasse redefine método da pai) é decidido em runtime com base no tipo real do objeto."
+      },
+      {
+        "question": "Por que usar `@Override` ao sobrescrever um método, mesmo não sendo obrigatório?",
+        "options": [
+          "Torna o método mais rápido em runtime",
+          "O compilador avisa se o método não está de fato sobrescrevendo nada (ex: assinatura errada), evitando bugs silenciosos",
+          "É obrigatório desde o Java 21",
+          "Sem @Override o código não compila"
+        ],
+        "correctIndex": 1,
+        "explanation": "@Override é uma anotação de checagem: se o método anotado não corresponder exatamente a um método da superclasse/interface (ex: nome ou parâmetros digitados errado), o compilador acusa erro, em vez de silenciosamente criar um método novo não relacionado."
+      }
+    ]
+  },
+  {
+    "slug": "abstracao",
+    "title": "Abstração",
+    "category": "OOP",
+    "orderIndex": 4,
+    "difficulty": "INTERMEDIARIO",
+    "content": "Abstração é expor o **o quê** um objeto faz e esconder o **como** ele faz. Na prática, você depende de uma interface ou classe abstrata, não da implementação concreta.\n\nExemplo do dia a dia em Spring: seu código chama `repository.save(entity)` sem precisar saber se por trás existe PostgreSQL, MongoDB, ou um mock de teste. A assinatura do método é o contrato; a implementação é um detalhe que pode mudar sem afetar quem consome.\n\nAbstração é implementada via **classes abstratas** (`abstract class`, que podem ter estado e código parcialmente implementado) e **interfaces** (contrato quase puro). Ambas permitem escrever código contra o \"o quê\", ganhando flexibilidade pra trocar o \"como\" depois sem quebrar nada que já existe.",
+    "codeExample": "// O código de negócio depende só da abstração (interface), não da implementação concreta\npublic interface NotificadorService {\n    void enviar(String destinatario, String mensagem);\n}\n\npublic class EmailNotificador implements NotificadorService {\n    @Override\n    public void enviar(String destinatario, String mensagem) {\n        System.out.println(\"Enviando e-mail para \" + destinatario);\n    }\n}\n\npublic class PedidoService {\n    private final NotificadorService notificador; // depende da abstração\n\n    public PedidoService(NotificadorService notificador) {\n        this.notificador = notificador; // pode ser Email, SMS, Push — o service não sabe nem precisa saber\n    }\n\n    public void confirmarPedido(String cliente) {\n        notificador.enviar(cliente, \"Pedido confirmado!\");\n    }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Abstração = expor o QUÊ, esconder o COMO",
+      "Implementada via interface (contrato) ou classe abstrata (contrato + código compartilhado)",
+      "Permite trocar a implementação sem afetar quem consome a abstração",
+      "No Spring, JpaRepository é um exemplo prático: você não sabe (nem precisa saber) o SQL gerado por trás",
+      "Reduz acoplamento entre módulos — quem depende da interface não depende de detalhes de implementação"
+    ],
+    "relatedTopicSlugs": ["interface-vs-classe-abstrata", "injecao-de-dependencia"],
+    "quizzes": [
+      {
+        "question": "Quando `PedidoService` depende de `NotificadorService` (interface) em vez de `EmailNotificador` (classe concreta), o que isso ganha?",
+        "options": [
+          "Nada, é só uma formalidade",
+          "Permite trocar a implementação (SMS, Push...) sem alterar PedidoService",
+          "Torna o código mais lento",
+          "Impede o uso de testes automatizados"
+        ],
+        "correctIndex": 1,
+        "explanation": "Dependendo da abstração, PedidoService fica desacoplado de qual mecanismo de notificação é usado de verdade — trocar EmailNotificador por SmsNotificador não exige nenhuma mudança em PedidoService."
+      },
+      {
+        "question": "Qual das opções melhor descreve 'abstração' em OOP?",
+        "options": [
+          "Esconder o estado interno de um objeto",
+          "Expor o que um objeto faz, escondendo como ele faz",
+          "Ter várias classes com o mesmo nome de método",
+          "Permitir que uma classe herde de outra"
+        ],
+        "correctIndex": 1,
+        "explanation": "Abstração é sobre simplificar a interação: você usa o contrato (o quê) sem se preocupar com os detalhes de implementação (como). Isso é diferente de encapsulamento, que é sobre proteger o estado interno."
+      },
+      {
+        "question": "No Spring, ao injetar `JpaRepository<Topic, Long>` num Service, o código do Service sabe se o banco por trás é PostgreSQL, MySQL ou outro?",
+        "options": [
+          "Sim, é obrigatório configurar isso no Service",
+          "Não — o Service depende só da abstração (a interface do repository), sem conhecer o banco concreto",
+          "Só se o banco for PostgreSQL",
+          "O Spring exige que o Service declare o tipo de banco explicitamente"
+        ],
+        "correctIndex": 1,
+        "explanation": "Esse é um exemplo prático de abstração: JpaRepository é o contrato. O Service usa métodos como findBySlug() sem precisar saber qual banco está por trás nem como a query é traduzida — essa é exatamente a vantagem de programar contra abstrações."
+      }
+    ]
+  },
+  {
+    "slug": "interface-vs-classe-abstrata",
+    "title": "Interface vs Classe Abstrata",
+    "category": "OOP",
+    "orderIndex": 5,
+    "difficulty": "INTERMEDIARIO",
+    "content": "**Interface** é um contrato quase puro: por padrão só assinaturas de métodos (sem corpo), e desde o Java 8 também pode ter métodos `default` (com implementação) e `static`. Campos numa interface são implicitamente `public static final` (constantes) — não existe estado de instância. Uma classe pode implementar **várias** interfaces.\n\n**Classe abstrata** (`abstract class`) pode ter estado (campos de instância), construtores, e métodos concretos junto dos abstratos. Uma classe só pode estender **uma** classe abstrata (herança simples).\n\n**Regra prática pra decidir:** se a relação é \"é um\" (*is-a*) e as subclasses compartilham código/estado real → classe abstrata. Se é uma \"capacidade\" (*can-do*, um contrato que tipos não relacionados podem cumprir) → interface. Exemplo: `Cachorro` e `Gato` são um `Animal` (classe abstrata, compartilham campos como `nome`); mas `Cachorro` e `Robo` podem ambos `Correr` (interface, capacidades não relacionadas por herança).",
+    "codeExample": "// Interface: contrato de capacidade — Cachorro e Robo não têm relação de herança\npublic interface Correvel {\n    void correr();\n\n    default void parar() { // default method: implementação compartilhada, opcional de sobrescrever\n        System.out.println(\"Parando...\");\n    }\n}\n\n// Classe abstrata: relação IS-A real, com estado compartilhado\npublic abstract class Animal {\n    protected String nome; // estado — interface não pode ter isso\n\n    public Animal(String nome) { this.nome = nome; }\n\n    public abstract String emitirSom(); // contrato que cada filha implementa do seu jeito\n\n    public void dormir() { // método concreto, compartilhado por todas as filhas\n        System.out.println(nome + \" dormindo\");\n    }\n}\n\npublic class Cachorro extends Animal implements Correvel {\n    public Cachorro(String nome) { super(nome); }\n\n    @Override\n    public String emitirSom() { return \"Au au\"; }\n\n    @Override\n    public void correr() { System.out.println(nome + \" correndo\"); }\n}",
+    "codeExampleBad": null,
+    "keyPoints": [
+      "Interface: contrato puro (+ default/static methods desde Java 8), sem estado de instância",
+      "Classe abstrata: pode ter estado, construtores e métodos concretos",
+      "Uma classe implementa N interfaces, mas estende só 1 classe abstrata",
+      "Regra prática: 'é um' com código compartilhado → classe abstrata; 'sabe fazer' → interface",
+      "Campos numa interface são implicitamente public static final (constantes)"
+    ],
+    "relatedTopicSlugs": ["heranca", "abstracao"],
+    "quizzes": [
+      {
+        "question": "Uma classe Java pode implementar quantas interfaces?",
+        "options": ["Só uma", "Quantas fizerem sentido — múltiplas", "No máximo duas", "Depende de terem métodos default"],
+        "correctIndex": 1,
+        "explanation": "Diferente de herança de classe (limitada a uma superclasse), uma classe pode implementar quantas interfaces forem necessárias — é assim que Java simula um tipo de herança múltipla de contratos."
+      },
+      {
+        "question": "Por que `Correvel` (capacidade de correr) faz mais sentido como interface do que como classe abstrata no exemplo?",
+        "options": [
+          "Interfaces são sempre mais rápidas",
+          "Porque Cachorro e um hipotético Robo não têm relação de herança 'é um Animal' em comum, só compartilham a capacidade de correr",
+          "Classes abstratas não podem ter métodos com corpo",
+          "Não faz diferença, é só estilo"
+        ],
+        "correctIndex": 1,
+        "explanation": "Interface modela 'capacidades' que tipos não relacionados podem ter em comum. Como Cachorro e Robo não compartilham uma superclasse natural, mas ambos podem 'correr', uma interface é a modelagem correta — evita forçar uma hierarquia de herança artificial."
+      },
+      {
+        "question": "O que um campo declarado dentro de uma interface é, implicitamente?",
+        "options": ["private final", "public static final", "protected static", "Não pode ter campos"],
+        "correctIndex": 1,
+        "explanation": "Campos em interfaces são implicitamente public, static e final — ou seja, são constantes compartilhadas, não estado de instância. Isso reforça que interfaces não guardam estado por objeto."
+      }
+    ]
+  }
+]
