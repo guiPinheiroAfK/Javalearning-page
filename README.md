@@ -26,9 +26,23 @@ npm install
 npm run dev
 ```
 
-Acesse `http://localhost:5173`. O `DataSeeder` popula o banco automaticamente no primeiro start (32 tópicos, ~96 quizzes) — só roda se a tabela `topic` estiver vazia.
+Acesse `http://localhost:5173`. O `DataSeeder` popula o banco automaticamente no primeiro start (45 tópicos, 135 quizzes) — só roda se a tabela `topic` estiver vazia.
 
 Documentação interativa da API: `http://localhost:8080/swagger-ui.html`.
+
+---
+
+## Trilhas
+
+O conteúdo é organizado em 3 trilhas de progressão (puramente uma divisão de apresentação no frontend — `Category` já basta pro backend, a trilha é derivada dela em `types/index.ts`, sem duplicar dado):
+
+| Trilha | Categorias | Foco |
+|---|---|---|
+| **Java Básico** | Fundamentos, OOP, Armadilhas Clássicas, Collections, Exceptions | Sintaxe, pilares de OOP, armadilhas clássicas (`==` vs `.equals()`, N+1 conceitual) |
+| **Java Intermediário** | Java Moderno, Ecossistema, Spring Boot, HTTP & REST, SQL | Records/sealed/pattern matching, Git/Maven, arquitetura Spring, REST, SQL básico |
+| **Engenharia de Software** | Concorrência, Microservices, Performance | JVM memory model, thread-safety, self-invocation, arquitetura distribuída, tuning de performance — conteúdo de preparação para entrevistas de backend enterprise |
+
+A trilha "Engenharia de Software" é conceitual: o JavaBase em si é (e deve ser) um monólito simples — não há Kafka, Redis ou Resilience4j de verdade rodando aqui. O que é real e cacheado nesta trilha é a ligação de volta pro próprio código: o tópico sobre self-invocation em `@Transactional`, por exemplo, aponta pro [`ProgressService.java`](backend/src/main/java/com/javabase/service/ProgressService.java), que usa `@Transactional` de verdade nos métodos `marcarComoCompleto` e `submeterQuiz`.
 
 ---
 
@@ -103,7 +117,7 @@ O projeto se propõe a ser o próprio exemplo do que ensina:
 
 - **Constructor injection em tudo** — [`TopicService.java`](backend/src/main/java/com/javabase/service/TopicService.java) — sem `@Autowired` em field, testável sem subir Spring.
 - **`@Cacheable` com TTL diferenciado por cache** — [`CacheConfig.java`](backend/src/main/java/com/javabase/config/CacheConfig.java) — `topics-list` (10min) vs `topic-detail` (30min).
-- **A armadilha de self-invocation do `@Cacheable`** — [`TopicSnapshotCache.java`](backend/src/main/java/com/javabase/service/TopicSnapshotCache.java) — por que o cache precisou virar um bean separado, em vez de um método interno de `TopicService`.
+- **A armadilha de self-invocation do `@Cacheable`** — [`TopicSnapshotCache.java`](backend/src/main/java/com/javabase/service/TopicSnapshotCache.java) — por que o cache precisou virar um bean separado, em vez de um método interno de `TopicService`. O mesmo princípio (proxy AOP não intercepta chamada interna) é o tema do tópico "Transações e a Armadilha do Self-Invocation", aplicado a `@Transactional` em [`ProgressService.java`](backend/src/main/java/com/javabase/service/ProgressService.java).
 - **`@RestControllerAdvice` centralizado** — [`GlobalExceptionHandler.java`](backend/src/main/java/com/javabase/handler/GlobalExceptionHandler.java) — contrato de erro consistente em toda a API.
 - **`@EntityGraph` evitando N+1** — [`TopicRepository.java`](backend/src/main/java/com/javabase/repository/TopicRepository.java) — `findWithQuizzesBySlug` traz tópico + quizzes numa única query.
 - **Query nativa agregada** — [`UserProgressRepository.java`](backend/src/main/java/com/javabase/repository/UserProgressRepository.java) — `statsByCategory` faz `LEFT JOIN` + `GROUP BY` numa query só, sem N+1 por categoria.
@@ -112,6 +126,17 @@ O projeto se propõe a ser o próprio exemplo do que ensina:
 - **Suíte de testes em camadas** — unit test puro (Mockito), web layer test (`@WebMvcTest`) e integration test (`@SpringBootTest` + Testcontainers contra Postgres real).
 - **Bundle fine-grained no frontend** — [`highlighter.ts`](javabase-frontend/src/lib/highlighter.ts) — carrega só a linguagem Java e os dois temas usados, em vez do bundle completo do Shiki (~150 linguagens).
 - **Estado compartilhado entre hooks** — [`useProgress.ts`](javabase-frontend/src/hooks/useProgress.ts) — um pub-sub simples em módulo garante que completar um tópico na página do tópico atualiza o checkmark no sidebar, sem prop drilling nem lib de state management.
+
+---
+
+## Deploy
+
+O frontend está pronto pra subir no **Netlify** (`javabase-frontend/netlify.toml` já define o build command e o redirect de SPA — sem isso, dar F5 numa rota como `/topicos/generics` retornaria 404):
+
+1. Conecte o repo no Netlify apontando o "base directory" pra `javabase-frontend`.
+2. Configure a env var `VITE_API_URL` no painel do Netlify apontando pro backend (ver `.env.example`).
+3. O backend (Spring Boot + Postgres) precisa de um host que rode um processo Java de longa duração — Netlify não serve pra isso (é hospedagem estática + funções serverless). Opções comuns: Render, Railway, Fly.io — qualquer um que suba um container Docker ou um JAR.
+4. No backend hospedado, configure `WEB_CORS_ALLOWED_ORIGIN` com o domínio do Netlify (aceita lista separada por vírgula, então dá pra manter o `localhost:5173` de dev junto: `http://localhost:5173,https://seu-site.netlify.app`).
 
 ---
 
